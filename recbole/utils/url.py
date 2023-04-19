@@ -113,7 +113,7 @@ def rename_atomic_files(folder, old_name, new_name):
         base, suf = os.path.splitext(f)
         if not old_name in base:
             continue
-        assert suf in {".inter", ".user", ".item"}
+        # assert suf in {".inter", ".user", ".item"}
         os.rename(
             os.path.join(folder, f),
             os.path.join(folder, base.replace(old_name, new_name) + suf),
