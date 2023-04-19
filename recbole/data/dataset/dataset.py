@@ -245,14 +245,14 @@ class Dataset(torch.utils.data.Dataset):
                 os.unlink(path)
 
                 basename = os.path.splitext(os.path.basename(path))[0]
-                
+
                 # check whether files are not in a sub-folder
                 files = os.listdir(self.dataset_path)
                 if len(files) == 1 and files[0] == basename:
                     tmp_data_path = os.path.join(self.dataset_path, files[0])
                     for fname in os.listdir(tmp_data_path):
                         shutil.move(os.path.join(tmp_data_path, fname), self.dataset_path)
-                    os.unlink(tmp_data_path)
+                    shutil.rmtree(tmp_data_path)
 
                 rename_atomic_files(self.dataset_path, basename, self.dataset_name)
 
