@@ -12,7 +12,7 @@ import os.path as osp
 import errno
 from logging import getLogger
 
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 GBFACTOR = float(1 << 30)
 
