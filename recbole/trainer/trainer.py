@@ -29,7 +29,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch.nn.utils.clip_grad import clip_grad_norm_
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import torch.cuda.amp as amp
 
 from recbole.data.interaction import Interaction
