@@ -260,9 +260,11 @@ class Dataset(torch.utils.data.Dataset):
             else:
                 self.logger.info("Stop download.")
                 exit(-1)
+
+        try:
             torch.distributed.barrier()
-        else:
-            torch.distributed.barrier()
+        except RuntimeError as e:
+            print(e)
 
     def _load_data(self, token, dataset_path):
         """Load features.
