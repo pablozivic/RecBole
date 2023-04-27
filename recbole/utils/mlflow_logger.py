@@ -35,7 +35,7 @@ class MLFlowLogger(object):
             except:
                 self.exp_id = self.mlflow_client.get_experiment_by_name(exp_name).experiment_id
 
-            run = self.mlflow_client.start_run(experiment_id=self.exp_id, run_name=self.mlflow_config['run_name'])
+            run = self.mlflow_client.create_run(experiment_id=self.exp_id, run_name=self.mlflow_config['run_name'])
             self.run_id = run.info.run_id
 
     def log_metrics(self, metrics, head="train", commit=True):
