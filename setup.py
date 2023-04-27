@@ -20,6 +20,7 @@ install_requires = [
     "thop>=0.1.1.post2207130030",
     "tabulate>=0.8.10",
     "plotly>=4.0.0",
+    "texttable>=0.9.0"
 ]
 
 setup_requires = []
