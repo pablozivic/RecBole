@@ -47,6 +47,8 @@ from recbole.utils import (
 )
 from torch.nn.parallel import DistributedDataParallel
 
+from recbole.utils.mlflow_logger import MLFlowLogger
+
 
 class AbstractTrainer(object):
     r"""Trainer Class is used to manage the training and evaluation processes of recommender system models.
@@ -113,7 +115,7 @@ class Trainer(AbstractTrainer):
 
         self.logger = getLogger()
         self.tensorboard = get_tensorboard(self.logger)
-        self.wandblogger = WandbLogger(config)
+        self.metrics_logger = MLFlowLogger(config)
         self.learner = config["learner"]
         self.learning_rate = config["learning_rate"]
         self.epochs = config["epochs"]
@@ -447,7 +449,7 @@ class Trainer(AbstractTrainer):
             if verbose:
                 self.logger.info(train_loss_output)
             self._add_train_loss_to_tensorboard(epoch_idx, train_loss)
-            self.wandblogger.log_metrics(
+            self.metrics_logger.log_metrics(
                 {"epoch": epoch_idx, "train_loss": train_loss, "train_step": epoch_idx},
                 head="train",
             )
@@ -491,7 +493,7 @@ class Trainer(AbstractTrainer):
                     self.logger.info(valid_score_output)
                     self.logger.info(valid_result_output)
                 self.tensorboard.add_scalar("Vaild_score", valid_score, epoch_idx)
-                self.wandblogger.log_metrics(
+                self.metrics_logger.log_metrics(
                     {**valid_result, "valid_step": valid_step}, head="valid"
                 )
 
@@ -624,7 +626,7 @@ class Trainer(AbstractTrainer):
         result = self.evaluator.evaluate(struct)
         if not self.config["single_spec"]:
             result = self._map_reduce(result, num_sample)
-        self.wandblogger.log_eval_metrics(result, head="eval")
+        self.metrics_logger.log_eval_metrics(result, head="eval")
         return result
 
     def _map_reduce(self, result, num_sample):
