@@ -59,6 +59,7 @@ class MLFlowLogger(object):
     def _add_head_to_metrics(self, metrics, head):
         head_metrics = dict()
         for k, v in metrics.items():
+            k = k.replace('@', '_at_')
             if "_step" in k:
                 head_metrics[k] = v
             else:
