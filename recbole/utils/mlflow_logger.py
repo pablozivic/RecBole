@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+from recbole.config import Config
 
 
 class MLFlowLogger(object):
-    def __init__(self, config):
+    def __init__(self, config: Config):
         """
         Args:
             config (dict): A dictionary of parameters used by RecBole.
@@ -38,17 +39,22 @@ class MLFlowLogger(object):
             run = self.mlflow_client.create_run(experiment_id=self.exp_id, run_name=self.mlflow_config['run_name'])
             self.run_id = run.info.run_id
 
+            for k, v in self.config.final_config_dict.items():
+                self.mlflow_client.log_param(self.run_id, k, v)
+
     def log_metrics(self, metrics, head="train", commit=True):
         if self.enabled:
             if head:
                 metrics = self._add_head_to_metrics(metrics, head)
 
-            self.mlflow_client.log_metrics(metrics)
+            for k, v in metrics.items():
+                self.mlflow_client.log_metric(self.run_id, k, v)
 
     def log_eval_metrics(self, metrics, head="eval"):
         if self.enabled:
             metrics = self._add_head_to_metrics(metrics, head)
-            self.mlflow_client.log_metrics(metrics)
+            for k, v in metrics.items():
+                self.mlflow_client.log_metric(self.run_id, k, v)
 
     def _add_head_to_metrics(self, metrics, head):
         head_metrics = dict()
@@ -59,3 +65,18 @@ class MLFlowLogger(object):
                 head_metrics[f"{head}/{k}"] = v
 
         return head_metrics
+
+
+def flatten_dict(d):
+    res = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            v = prefix_dict(k, flatten_dict(v), sep='.')
+            res.update(v)
+        else:
+            res[k] = v
+    return res
+
+
+def prefix_dict(p, d, sep='_'):
+    return {f'{p}{sep}{k}': v for k, v in d.items()}
