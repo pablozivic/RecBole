@@ -233,7 +233,9 @@ class Trainer(AbstractTrainer):
             train_data.sampler.set_epoch(epoch_idx)
 
         scaler = amp.GradScaler(enabled=self.enable_scaler)
+        n_batches = 0
         for batch_idx, interaction in enumerate(iter_data):
+            n_batches += 1
             interaction = interaction.to(self.device)
             self.optimizer.zero_grad()
             sync_loss = 0
@@ -267,7 +269,7 @@ class Trainer(AbstractTrainer):
                 iter_data.set_postfix_str(
                     set_color("GPU RAM: " + get_gpu_usage(self.device), "yellow")
                 )
-        return total_loss
+        return tuple(e/n_batches for e in total_loss) if isinstance(total_loss, tuple) else total_loss / n_batches
 
     def _valid_epoch(self, valid_data, show_progress=False):
         r"""Valid the model with valid data
