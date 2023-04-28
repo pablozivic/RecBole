@@ -611,7 +611,30 @@ class Trainer(AbstractTrainer):
         )
 
         num_sample = 0
+        total_loss = None
+        n_batch = 0
         for batch_idx, batched_data in enumerate(iter_data):
+            n_batch += 1
+            # Compute loss to diagnose overfitting
+
+            self.model.train()
+            loss_func = self.model.calculate_loss
+            with torch.autocast(device_type=self.device.type, enabled=self.enable_amp):
+                losses = loss_func(batched_data)
+
+            if isinstance(losses, tuple):
+                loss_tuple = tuple(per_loss.item() for per_loss in losses)
+                total_loss = (
+                    loss_tuple
+                    if total_loss is None
+                    else tuple(map(sum, zip(total_loss, loss_tuple)))
+                )
+            else:
+                total_loss = (
+                    losses.item() if total_loss is None else total_loss + losses.item()
+                )
+
+            self.model.eval()
             num_sample += len(batched_data)
             interaction, scores, positive_u, positive_i = eval_func(batched_data)
             if self.gpu_available and show_progress:
@@ -624,6 +647,7 @@ class Trainer(AbstractTrainer):
         self.eval_collector.model_collect(self.model)
         struct = self.eval_collector.get_data_struct()
         result = self.evaluator.evaluate(struct)
+        result['eval_loss'] = total_loss / n_batch if n_batch else 0
         if not self.config["single_spec"]:
             result = self._map_reduce(result, num_sample)
         self.metrics_logger.log_eval_metrics(result, head="eval")
