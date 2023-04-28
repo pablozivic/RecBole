@@ -620,7 +620,7 @@ class Trainer(AbstractTrainer):
             self.model.train()
             loss_func = self.model.calculate_loss
             with torch.autocast(device_type=self.device.type, enabled=self.enable_amp):
-                losses = loss_func(batched_data)
+                losses = loss_func(batched_data[0].to(self.device))
 
             if isinstance(losses, tuple):
                 loss_tuple = tuple(per_loss.item() for per_loss in losses)
