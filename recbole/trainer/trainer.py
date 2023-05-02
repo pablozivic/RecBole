@@ -137,6 +137,7 @@ class Trainer(AbstractTrainer):
 
         self.start_epoch = 0
         self.cur_step = 0
+        self.cur_epoch = 0
         self.best_valid_score = -np.inf if self.valid_metric_bigger else np.inf
         self.best_valid_result = None
         self.train_loss_dict = dict()
@@ -323,7 +324,7 @@ class Trainer(AbstractTrainer):
         resume_file = str(resume_file)
         self.saved_model_file = resume_file
         checkpoint = torch.load(resume_file, map_location=self.device)
-        self.start_epoch = checkpoint["epoch"] + 1
+        self.cur_epoch = self.start_epoch = checkpoint["epoch"] + 1
         self.cur_step = checkpoint["cur_step"]
         self.best_valid_score = checkpoint["best_valid_score"]
 
@@ -436,6 +437,8 @@ class Trainer(AbstractTrainer):
         valid_step = 0
 
         for epoch_idx in range(self.start_epoch, self.epochs):
+            self.cur_epoch = epoch_idx
+
             # train
             training_start_time = time()
             train_loss = self._train_epoch(
@@ -453,7 +456,7 @@ class Trainer(AbstractTrainer):
             self._add_train_loss_to_tensorboard(epoch_idx, train_loss)
             self.metrics_logger.log_metrics(
                 {"epoch": epoch_idx, "train_loss": train_loss, "train_step": epoch_idx},
-                head="train",
+                epoch=epoch_idx, head="train",
             )
 
             # eval
@@ -496,7 +499,7 @@ class Trainer(AbstractTrainer):
                     self.logger.info(valid_result_output)
                 self.tensorboard.add_scalar("Vaild_score", valid_score, epoch_idx)
                 self.metrics_logger.log_metrics(
-                    {**valid_result, "valid_step": valid_step}, head="valid"
+                    {**valid_result, "valid_step": valid_step}, epoch=epoch_idx, head="valid"
                 )
 
                 if update_flag:
@@ -590,8 +593,6 @@ class Trainer(AbstractTrainer):
             )
             self.logger.info(message_output)
 
-        self.model.eval()
-
         if isinstance(eval_data, FullSortEvalDataLoader):
             eval_func = self._full_sort_batch_eval
             if self.item_tensor is None:
@@ -617,8 +618,8 @@ class Trainer(AbstractTrainer):
         n_batch = 0
         for batch_idx, batched_data in enumerate(iter_data):
             n_batch += 1
-            # Compute loss to diagnose overfitting
 
+            # Compute loss to diagnose overfitting
             self.model.train()
             loss_func = self.model.calculate_loss
             with torch.autocast(device_type=self.device.type, enabled=self.enable_amp):
@@ -652,7 +653,7 @@ class Trainer(AbstractTrainer):
         result['eval_loss'] = total_loss / n_batch if n_batch else 0
         if not self.config["single_spec"]:
             result = self._map_reduce(result, num_sample)
-        self.metrics_logger.log_eval_metrics(result, head="eval")
+        self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head="eval")
         return result
 
     def _map_reduce(self, result, num_sample):

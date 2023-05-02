@@ -42,19 +42,19 @@ class MLFlowLogger(object):
             for k, v in self.config.final_config_dict.items():
                 self.mlflow_client.log_param(self.run_id, k, v)
 
-    def log_metrics(self, metrics, head="train", commit=True):
+    def log_metrics(self, metrics, epoch, head="train", commit=True):
         if self.enabled:
             if head:
                 metrics = self._add_head_to_metrics(metrics, head)
 
             for k, v in metrics.items():
-                self.mlflow_client.log_metric(self.run_id, k, v)
+                self.mlflow_client.log_metric(self.run_id, k, v, step=epoch)
 
-    def log_eval_metrics(self, metrics, head="eval"):
+    def log_eval_metrics(self, metrics, epoch, head="eval"):
         if self.enabled:
             metrics = self._add_head_to_metrics(metrics, head)
             for k, v in metrics.items():
-                self.mlflow_client.log_metric(self.run_id, k, v)
+                self.mlflow_client.log_metric(self.run_id, k, v, step=epoch)
 
     def _add_head_to_metrics(self, metrics, head):
         head_metrics = dict()
