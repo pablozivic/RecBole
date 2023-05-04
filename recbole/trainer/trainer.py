@@ -27,7 +27,7 @@ import torch
 import torch.optim as optim
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LambdaLR, ChainedScheduler, ReduceLROnPlateau
+from torch.optim.lr_scheduler import LambdaLR, ChainedScheduler, ReduceLROnPlateau, CosineAnnealingWarmRestarts
 from tqdm.auto import tqdm
 import torch.cuda.amp as amp
 
@@ -144,26 +144,32 @@ class Trainer(AbstractTrainer):
         self.best_valid_result = None
         self.train_loss_dict = dict()
         self.optimizer = self._build_optimizer()
-        self.scheduler = self._build_scheduler()
+        self.scheduler = None
         self.eval_type = config["eval_type"]
         self.eval_collector = Collector(config)
         self.evaluator = Evaluator(config)
         self.item_tensor = None
         self.tot_item_num = None
 
-    def _build_scheduler(self):
+    def _build_scheduler(self, steps_per_epoch):
         scheduler_cfg = self.config['scheduler']
         if scheduler_cfg is None: return
 
-        assert scheduler_cfg['type'] == 'warm-up'
-
-        warmup = LambdaLR(
-            self.optimizer,
-            lr_lambda=lambda batch_idx: min((batch_idx + 1) / scheduler_cfg['steps'], 1)
-        )
-        return warmup
-        # reduce = ReduceLROnPlateau(self.optimizer, patience=3, min_lr=1e-6)
-        # return ChainedScheduler([warmup, reduce])
+        if scheduler_cfg['type'] == 'one-cycle':
+            return torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer, max_lr=self.learning_rate,
+                steps_per_epoch=steps_per_epoch, epochs=self.epochs,
+                pct_start=scheduler_cfg.get('pct_start', 0.3),
+                anneal_strategy=scheduler_cfg.get('anneal_strategy', 'cos'),
+                final_div_factor=scheduler_cfg.get('final_div_factor', 0.4)
+            )
+        elif scheduler_cfg['type'] == 'warm-up':
+            return LambdaLR(
+                self.optimizer,
+                lr_lambda=lambda batch_idx: min((batch_idx + 1) / scheduler_cfg['steps'], 1)
+            )
+        else:
+            raise RuntimeError('Invalid scheduler type ({})'.format(scheduler_cfg['type']))
 
     def _build_optimizer(self, **kwargs) -> Optimizer:
         r"""Init the Optimizer
@@ -457,6 +463,8 @@ class Trainer(AbstractTrainer):
         if self.config["train_neg_sample_args"].get("dynamic", False):
             train_data.get_model(self.model)
         valid_step = 0
+
+        self.scheduler = self._build_scheduler(len(train_data))
 
         for epoch_idx in range(self.start_epoch, self.epochs):
             self.cur_epoch = epoch_idx
