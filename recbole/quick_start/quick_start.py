@@ -39,7 +39,8 @@ from recbole.utils import (
 
 
 def run_recbole(
-    model=None, dataset=None, config_file_list=None, config_dict=None, saved=True
+    model=None, dataset=None, config_file_list=None, config_dict=None, saved=True,
+    checkpoint_fname=None,
 ):
     r"""A fast running api, which includes the complete process of
     training and testing a model on a specified dataset
@@ -83,6 +84,9 @@ def run_recbole(
 
     # trainer loading and initialization
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
+
+    if checkpoint_fname:
+        trainer.resume_checkpoint(checkpoint_fname)
 
     # model training
     best_valid_score, best_valid_result = trainer.fit(
