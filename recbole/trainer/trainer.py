@@ -152,7 +152,8 @@ class Trainer(AbstractTrainer):
         self.tot_item_num = None
 
     def _build_scheduler(self):
-        scheduler_cfg = self.config.get('scheduler')
+        # TODO: add default value
+        scheduler_cfg = self.config['scheduler']
         if scheduler_cfg is None: return
 
         assert scheduler_cfg['type'] == 'warm-up'
