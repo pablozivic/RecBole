@@ -27,7 +27,7 @@ import torch
 import torch.optim as optim
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, ChainedScheduler, ReduceLROnPlateau
 from tqdm.auto import tqdm
 import torch.cuda.amp as amp
 
@@ -157,12 +157,12 @@ class Trainer(AbstractTrainer):
 
         assert scheduler_cfg['type'] == 'warm-up'
 
-        scheduler = LambdaLR(
+        warmup = LambdaLR(
             self.optimizer,
             lr_lambda=lambda batch_idx: min((batch_idx + 1) / scheduler_cfg['steps'], 1)
         )
-
-        return scheduler
+        reduce = ReduceLROnPlateau(self.optimizer, patience=3, min_lr=1e-6)
+        return ChainedScheduler([warmup, reduce])
 
     def _build_optimizer(self, **kwargs) -> Optimizer:
         r"""Init the Optimizer
@@ -476,7 +476,8 @@ class Trainer(AbstractTrainer):
                 self.logger.info(train_loss_output)
             self._add_train_loss_to_tensorboard(epoch_idx, train_loss)
             self.metrics_logger.log_metrics(
-                {"epoch": epoch_idx, "train_loss": train_loss, "train_step": epoch_idx},
+                {"epoch": epoch_idx, "train_loss": train_loss, "train_step": epoch_idx,
+                 'learning_rate': self.optimizer.param_groups[0]['lr']},
                 epoch=epoch_idx, head="train",
             )
 
