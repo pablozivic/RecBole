@@ -26,6 +26,8 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch.nn.utils.clip_grad import clip_grad_norm_
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LambdaLR
 from tqdm.auto import tqdm
 import torch.cuda.amp as amp
 
@@ -142,13 +144,27 @@ class Trainer(AbstractTrainer):
         self.best_valid_result = None
         self.train_loss_dict = dict()
         self.optimizer = self._build_optimizer()
+        self.scheduler = self._build_scheduler()
         self.eval_type = config["eval_type"]
         self.eval_collector = Collector(config)
         self.evaluator = Evaluator(config)
         self.item_tensor = None
         self.tot_item_num = None
 
-    def _build_optimizer(self, **kwargs):
+    def _build_scheduler(self):
+        scheduler_cfg = self.config.get('scheduler')
+        if scheduler_cfg is None: return
+
+        assert scheduler_cfg['type'] == 'warm-up'
+
+        scheduler = LambdaLR(
+            self.optimizer,
+            lr_lambda=lambda batch_idx: min((batch_idx + 1) / scheduler_cfg['steps'], 1)
+        )
+
+        return scheduler
+
+    def _build_optimizer(self, **kwargs) -> Optimizer:
         r"""Init the Optimizer
 
         Args:
@@ -179,7 +195,8 @@ class Trainer(AbstractTrainer):
         if learner.lower() == "adam":
             optimizer = optim.Adam(params, lr=learning_rate, weight_decay=weight_decay)
         elif learner.lower() == 'adamw':
-            optimizer = optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay)
+            optimizer = optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay,
+                                    betas=(0.9, 0.95))
         elif learner.lower() == "sgd":
             optimizer = optim.SGD(params, lr=learning_rate, weight_decay=weight_decay)
         elif learner.lower() == "adagrad":
@@ -267,6 +284,8 @@ class Trainer(AbstractTrainer):
             if self.clip_grad_norm:
                 clip_grad_norm_(self.model.parameters(), **self.clip_grad_norm)
             scaler.step(self.optimizer)
+            if self.scheduler:
+                self.scheduler.step()
             scaler.update()
             if self.gpu_available and show_progress:
                 iter_data.set_postfix_str(
