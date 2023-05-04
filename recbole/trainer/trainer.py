@@ -152,7 +152,6 @@ class Trainer(AbstractTrainer):
         self.tot_item_num = None
 
     def _build_scheduler(self):
-        # TODO: add default value
         scheduler_cfg = self.config['scheduler']
         if scheduler_cfg is None: return
 
@@ -162,8 +161,9 @@ class Trainer(AbstractTrainer):
             self.optimizer,
             lr_lambda=lambda batch_idx: min((batch_idx + 1) / scheduler_cfg['steps'], 1)
         )
-        reduce = ReduceLROnPlateau(self.optimizer, patience=3, min_lr=1e-6)
-        return ChainedScheduler([warmup, reduce])
+        return warmup
+        # reduce = ReduceLROnPlateau(self.optimizer, patience=3, min_lr=1e-6)
+        # return ChainedScheduler([warmup, reduce])
 
     def _build_optimizer(self, **kwargs) -> Optimizer:
         r"""Init the Optimizer
