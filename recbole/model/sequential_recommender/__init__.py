@@ -21,6 +21,7 @@ from recbole.model.sequential_recommender.repeatnet import RepeatNet
 from recbole.model.sequential_recommender.s3rec import S3Rec
 from recbole.model.sequential_recommender.sasrec import SASRec
 from recbole.model.sequential_recommender.sasrecf import SASRecF
+from recbole.model.sequential_recommender.sasrecf2 import SASRecF2
 from recbole.model.sequential_recommender.shan import SHAN
 from recbole.model.sequential_recommender.sine import SINE
 from recbole.model.sequential_recommender.srgnn import SRGNN
