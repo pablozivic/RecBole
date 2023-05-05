@@ -165,9 +165,8 @@ class SASRecF2(SequentialRecommender):
         seq_output = self.forward(item_seq, item_seq_len)
         pos_items = interaction[self.POS_ITEM_ID]
         if self.loss_type == "COS":
-            import ipdb;ipdb.set_trace()
             pos_items_emb = self.embed_items(pos_items)
-            loss = self.loss_fct(seq_output, pos_items_emb)
+            loss = self.loss_fct(seq_output, pos_items_emb, torch.ones(2048).to(self.device))
             return loss
 
     def predict(self, interaction):
@@ -175,7 +174,6 @@ class SASRecF2(SequentialRecommender):
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         test_item = interaction[self.ITEM_ID]
         seq_output = self.forward(item_seq, item_seq_len)
-        import ipdb;ipdb.set_trace()
         test_item_emb = self.item_features_table[test_item]
         scores = torch.mul(seq_output, test_item_emb).sum(dim=1)
         return scores
