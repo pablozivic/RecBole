@@ -100,10 +100,9 @@ class SASRecF2(SequentialRecommender):
         self._item_features_version = None
         self.item_num = dataset.item_num
 
-    @property
-    def item_features_table(self):
+    def get_item_features_table(self, cached):
         current_version = self.feature_embed_layer.checksum()
-        if self._item_features_version is None or self._item_features_version != current_version:
+        if self._item_features_version is None or (not cached and self._item_features_version != current_version):
             # TODO: batch
             self._item_features = self.embed_items(torch.arange(self.item_num).to(self.device))
             print('avg item norm', self._item_features.norm(dim=-1).mean())
@@ -172,7 +171,7 @@ class SASRecF2(SequentialRecommender):
             loss = self.loss_fct(seq_output, pos_items_emb, torch.ones(pos_items_emb.shape[0]).to(self.device))
             return loss
         elif self.loss_type == 'CE':
-            test_item_emb = self.item_features_table
+            test_item_emb = self.get_item_features_table(cached=True)
             logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
             loss = self.loss_fct(logits, pos_items)
             return loss
@@ -182,7 +181,7 @@ class SASRecF2(SequentialRecommender):
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         test_item = interaction[self.ITEM_ID]
         seq_output = self.forward(item_seq, item_seq_len)
-        test_item_emb = self.item_features_table[test_item]
+        test_item_emb = self.get_item_features_table(cached=False)[test_item]
         scores = torch.mul(seq_output, test_item_emb).sum(dim=1)
         return scores
 
@@ -190,7 +189,7 @@ class SASRecF2(SequentialRecommender):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         seq_output = self.forward(item_seq, item_seq_len)
-        test_items_emb = self.item_features_table
+        test_items_emb = self.get_item_features_table(cached=True)
         scores = torch.matmul(
             seq_output, test_items_emb.transpose(0, 1)
         )  # [B, item_num]
