@@ -104,6 +104,7 @@ class SASRecF2(SequentialRecommender):
         if self._item_features_version is None or self._item_features_version != current_version:
             # TODO: batch
             self._item_features = self.embed_items(torch.arange(self.item_num).to(self.device))
+            print('avg item norm', self._item_features.norm(dim=-1).mean())
             self._item_features_version = current_version
         return self._item_features
 
