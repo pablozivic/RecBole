@@ -165,7 +165,7 @@ class SASRecF2(SequentialRecommender):
         seq_output = self.forward(item_seq, item_seq_len)
         pos_items = interaction[self.POS_ITEM_ID]
         if self.loss_type == "COS":
-            pos_items_emb = self.embed_items(pos_items)
+            pos_items_emb = self.embed_items(pos_items).detach()
             loss = self.loss_fct(seq_output, pos_items_emb, torch.ones(pos_items_emb.shape[0]).to(self.device))
             return loss
 
