@@ -87,8 +87,10 @@ class SASRecF2(SequentialRecommender):
 
         if self.loss_type == "COS":
             self.loss_fct = nn.CosineEmbeddingLoss(reduction='mean')
+        elif self.loss_type == "CE":
+            self.loss_fct = nn.CrossEntropyLoss()
         else:
-            raise NotImplementedError("Make sure 'loss_type' in ['COS']!")
+            raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
 
         # parameters initialization
         self.apply(self._init_weights)
@@ -101,7 +103,6 @@ class SASRecF2(SequentialRecommender):
     @property
     def item_features_table(self):
         current_version = self.feature_embed_layer.checksum()
-        print(current_version, self._item_features_version)
         if self._item_features_version is None or self._item_features_version != current_version:
             # TODO: batch
             self._item_features = self.embed_items(torch.arange(self.item_num).to(self.device))
@@ -167,8 +168,13 @@ class SASRecF2(SequentialRecommender):
         seq_output = self.forward(item_seq, item_seq_len)
         pos_items = interaction[self.POS_ITEM_ID]
         if self.loss_type == "COS":
-            pos_items_emb = self.embed_items(pos_items).detach()
+            pos_items_emb = self.embed_items(pos_items)
             loss = self.loss_fct(seq_output, pos_items_emb, torch.ones(pos_items_emb.shape[0]).to(self.device))
+            return loss
+        elif self.loss_type == 'CE':
+            test_item_emb = self.item_features_table
+            logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
+            loss = self.loss_fct(logits, pos_items)
             return loss
 
     def predict(self, interaction):
