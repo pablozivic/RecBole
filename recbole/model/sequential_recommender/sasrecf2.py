@@ -40,6 +40,13 @@ class SASRecF2(SequentialRecommender):
         self.selected_features = config["selected_features"]
         self.pooling_mode = config["pooling_mode"]
         self.device = config["device"]
+
+        for field in self.selected_features:
+            if field not in dataset.field2type:
+                raise RuntimeError(
+                    f'Invalid field {field} in selected_features! Available: {dataset.field2type.keys()}'
+                )
+
         self.num_feature_field = sum(
             1
             if dataset.field2type[field] != FeatureType.FLOAT_SEQ
