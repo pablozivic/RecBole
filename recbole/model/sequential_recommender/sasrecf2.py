@@ -96,14 +96,14 @@ class SASRecF2(SequentialRecommender):
 
         self._item_features = None
         self._item_features_version = None
-        self.item_catalog = dataset.item_feat
+        self.item_num = dataset.item_num
 
     @property
     def item_features_table(self):
         current_version = self.feature_embed_layer.checksum()
         if self._item_features_version is None or self._item_features_version != current_version:
             # TODO: batch
-            self._item_features = self.feature_embed_layer(None, self.item_catalog)
+            self._item_features = self.embed_items(torch.arange(self.item_num).to(self.device))
             self._item_features_version = current_version
         return self._item_features
 
