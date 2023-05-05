@@ -182,7 +182,6 @@ class SASRecF2(SequentialRecommender):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         seq_output = self.forward(item_seq, item_seq_len)
-        import ipdb;ipdb.set_trace()
         test_items_emb = self.item_features_table
         scores = torch.matmul(
             seq_output, test_items_emb.transpose(0, 1)
