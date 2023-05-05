@@ -78,9 +78,9 @@ class SASRecF2(SequentialRecommender):
             layer_norm_eps=self.layer_norm_eps,
         )
 
-        # self.concat_layer = nn.Linear(
-        #     self.hidden_size * (1 + self.num_feature_field), self.hidden_size
-        # )
+        self.adapter_layer = nn.Linear(
+            self.hidden_size * self.num_feature_field, self.hidden_size
+        )
 
         self.LayerNorm = nn.LayerNorm(self.hidden_size, eps=self.layer_norm_eps)
         self.dropout = nn.Dropout(self.hidden_dropout_prob)
@@ -157,7 +157,7 @@ class SASRecF2(SequentialRecommender):
         feature_emb = feature_table.view(
             table_shape[:-2] + (feat_num * embedding_size,)
         )
-        return feature_emb
+        return self.adapter_layer(feature_emb)
 
     def calculate_loss(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
