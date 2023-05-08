@@ -300,7 +300,7 @@ class Trainer(AbstractTrainer):
                 )
         return tuple(e/n_batches for e in total_loss) if isinstance(total_loss, tuple) else total_loss / n_batches
 
-    def _valid_epoch(self, valid_data, show_progress=False):
+    def _valid_epoch(self, valid_data, show_progress=False, neg_sample_func=None):
         r"""Valid the model with valid data
 
         Args:
@@ -312,7 +312,7 @@ class Trainer(AbstractTrainer):
             dict: valid result
         """
         valid_result = self.evaluate(
-            valid_data, load_best_model=False, show_progress=show_progress
+            valid_data, load_best_model=False, show_progress=show_progress, neg_sample_func=neg_sample_func
         )
         valid_score = calculate_valid_score(valid_result, self.valid_metric)
         return valid_score, valid_result
@@ -498,7 +498,7 @@ class Trainer(AbstractTrainer):
             if (epoch_idx + 1) % self.eval_step == 0:
                 valid_start_time = time()
                 valid_score, valid_result = self._valid_epoch(
-                    valid_data, show_progress=show_progress
+                    valid_data, show_progress=show_progress, neg_sample_func=train_data._neg_sampling
                 )
 
                 (
@@ -596,7 +596,7 @@ class Trainer(AbstractTrainer):
 
     @torch.no_grad()
     def evaluate(
-        self, eval_data, load_best_model=True, model_file=None, show_progress=False
+        self, eval_data, load_best_model=True, model_file=None, show_progress=False, neg_sample_func=None
     ):
         r"""Evaluate the model based on the eval data.
 
@@ -607,6 +607,8 @@ class Trainer(AbstractTrainer):
             model_file (str, optional): the saved model file, default: None. If users want to test the previously
                                         trained model file, they can set this parameter.
             show_progress (bool): Show the progress of evaluate epoch. Defaults to ``False``.
+            neg_sample_func (bool): The negative sampling function. Defaults to ``None``.
+                                    It is used to compute validation loss
 
         Returns:
             collections.OrderedDict: eval result, key is the eval metric and value in the corresponding metric value.
@@ -647,6 +649,7 @@ class Trainer(AbstractTrainer):
         num_sample = 0
         total_loss = None
         n_batch = 0
+        if neg_sample_func is None: neg_sample_func = lambda x: x
         for batch_idx, batched_data in enumerate(iter_data):
             n_batch += 1
 
@@ -654,7 +657,7 @@ class Trainer(AbstractTrainer):
             self.model.train()
             loss_func = self.model.calculate_loss
             with torch.autocast(device_type=self.device.type, enabled=self.enable_amp):
-                losses = loss_func(batched_data[0].to(self.device))
+                losses = loss_func(neg_sample_func(batched_data[0]).to(self.device))
 
             if isinstance(losses, tuple):
                 loss_tuple = tuple(per_loss.item() for per_loss in losses)
@@ -1429,7 +1432,7 @@ class NCLTrainer(Trainer):
             if (epoch_idx + 1) % self.eval_step == 0:
                 valid_start_time = time()
                 valid_score, valid_result = self._valid_epoch(
-                    valid_data, show_progress=show_progress
+                    valid_data, show_progress=show_progress, neg_sample_func=train_data._neg_sampling
                 )
 
                 (
