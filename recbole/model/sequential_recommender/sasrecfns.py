@@ -160,17 +160,12 @@ class SASRecFNS(SequentialRecommender):
     def calculate_loss(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
-        neg_items = interaction[self.NEG_ITEM_ID]
         seq_output = self.forward(item_seq, item_seq_len)
-        pos_items = interaction[self.POS_ITEM_ID]
-
-        pos_items_emb = self.embed_items(pos_items)
-        neg_items_emb = self.embed_items(neg_items)
-        pos_logits = torch.mul(pos_items_emb, seq_output).sum(1)
-        neg_logits = torch.mul(pos_items_emb, torch.repeat_interleave(seq_output, self.neg_samples, dim=0)).sum(1)
-        pos_target = torch.ones(pos_items_emb.shape[0]).to(self.device)
-        neg_target = torch.zeros(neg_items_emb.shape[0]).to(self.device)
-        return self.loss_fct(pos_logits, pos_target) + self.loss_fct(neg_logits, neg_target)
+        
+        items = interaction[self.POS_ITEM_ID]
+        items_emb = self.embed_items(items)
+        logits = torch.mul(items_emb, seq_output).sum(1)
+        return self.loss_fct(logits, interaction['label'])
 
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
