@@ -176,7 +176,7 @@ class SASRecFNS(SequentialRecommender):
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         test_item = interaction[self.ITEM_ID]
         seq_output = self.forward(item_seq, item_seq_len)
-        test_item_emb = self.get_item_features_table(cached=False)[test_item]
+        test_item_emb = self.embed_items([test_item])
         scores = torch.mul(seq_output, test_item_emb).sum(dim=1)
         return scores
 
