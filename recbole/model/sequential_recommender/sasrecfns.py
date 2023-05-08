@@ -55,6 +55,7 @@ class SASRecFNS(SequentialRecommender):
 
         self.initializer_range = config["initializer_range"]
         self.loss_type = config["loss_type"]
+        self.neg_samples = config['train_neg_sample_args']['sample_num']
 
         # define layers and loss
         self.position_embedding = nn.Embedding(self.max_seq_length, self.hidden_size)
@@ -165,11 +166,11 @@ class SASRecFNS(SequentialRecommender):
 
         pos_items_emb = self.embed_items(pos_items)
         neg_items_emb = self.embed_items(neg_items)
-        items_emb = torch.cat([pos_items_emb, neg_items_emb], dim=0)
-        logits = torch.matmul(seq_output, items_emb.transpose(0, 1))
-        target = torch.cat([torch.ones(pos_items_emb.shape[0]), torch.zeros(neg_items_emb.shape[0])]).to(self.device)
-        loss = self.loss_fct(logits, target)
-        return loss
+        pos_logits = torch.mul(pos_items_emb, seq_output).sum(1)
+        neg_logits = torch.mul(pos_items_emb, torch.repeat_interleave(seq_output, self.neg_samples, dim=0)).sum(1)
+        pos_target = torch.ones(pos_items_emb.shape[0]).to(self.device)
+        neg_target = torch.zeros(neg_items_emb.shape[0]).to(self.device)
+        return self.loss_fct(pos_logits, pos_target) + self.loss_fct(neg_logits, neg_target)
 
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
