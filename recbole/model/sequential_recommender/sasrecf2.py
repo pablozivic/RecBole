@@ -101,13 +101,7 @@ class SASRecF2(SequentialRecommender):
         self.item_num = dataset.item_num
 
     def get_item_features_table(self, cached):
-        current_version = self.feature_embed_layer.checksum()
-        if self._item_features_version is None or (not cached and self._item_features_version != current_version):
-            # TODO: batch
-            self._item_features = self.embed_items(torch.arange(self.item_num).to(self.device))
-            print('avg item norm', self._item_features.norm(dim=-1).mean())
-            self._item_features_version = current_version
-        return self._item_features
+        return self.embed_items(torch.arange(self.item_num).to(self.device))
 
     def _init_weights(self, module):
         """Initialize the weights"""
