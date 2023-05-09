@@ -55,7 +55,7 @@ class SASRec(SequentialRecommender):
         self.item_embedding = nn.Embedding(
             self.n_items, self.hidden_size, padding_idx=0
         )
-        self.emb_dropout = nn.Dropout(p=config.get('emb_dropout', 0))
+        self.emb_dropout = nn.Dropout(p=config.file_config_dict.get('emb_dropout', 0))
         self.position_embedding = nn.Embedding(self.max_seq_length, self.hidden_size)
         self.trm_encoder = TransformerEncoder(
             n_layers=self.n_layers,
