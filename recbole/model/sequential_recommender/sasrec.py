@@ -72,10 +72,12 @@ class SASRec(SequentialRecommender):
 
         if self.loss_type == "BPR":
             self.loss_fct = BPRLoss()
+        elif self.loss_type == 'NS':
+            self.loss_fct = nn.BCEWithLogitsLoss()
         elif self.loss_type == "CE":
             self.loss_fct = nn.CrossEntropyLoss()
         else:
-            raise NotImplementedError("Make sure 'loss_type' in ['BPR', 'CE']!")
+            raise NotImplementedError("Make sure 'loss_type' in ['BPR', 'CE', 'NS']!")
 
         # parameters initialization
         self.apply(self._init_weights)
@@ -126,6 +128,15 @@ class SASRec(SequentialRecommender):
             neg_score = torch.sum(seq_output * neg_items_emb, dim=-1)  # [B]
             loss = self.loss_fct(pos_score, neg_score)
             return loss
+        elif self.loss_type == 'NS':
+            item_seq = interaction[self.ITEM_SEQ]
+            item_seq_len = interaction[self.ITEM_SEQ_LEN]
+            seq_output = self.forward(item_seq, item_seq_len)
+
+            items = interaction[self.POS_ITEM_ID]
+            items_emb = self.embed_items(items)
+            logits = torch.mul(items_emb, seq_output).sum(1)
+            return self.loss_fct(logits, interaction['label'])
         else:  # self.loss_type = 'CE'
             test_item_emb = self.item_embedding.weight
             logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
