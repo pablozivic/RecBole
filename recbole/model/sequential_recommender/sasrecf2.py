@@ -100,7 +100,7 @@ class SASRecF2(SequentialRecommender):
         self._item_features_version = None
         self.item_num = dataset.item_num
 
-    def get_item_features_table(self, cached):
+    def get_item_features_table(self):
         return self.embed_items(torch.arange(self.item_num).to(self.device))
 
     def _init_weights(self, module):
@@ -165,7 +165,7 @@ class SASRecF2(SequentialRecommender):
             loss = self.loss_fct(seq_output, pos_items_emb, torch.ones(pos_items_emb.shape[0]).to(self.device))
             return loss
         elif self.loss_type == 'CE':
-            test_item_emb = self.get_item_features_table(cached=True)
+            test_item_emb = self.get_item_features_table()
             logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
             loss = self.loss_fct(logits, pos_items)
             return loss
@@ -175,7 +175,7 @@ class SASRecF2(SequentialRecommender):
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         test_item = interaction[self.ITEM_ID]
         seq_output = self.forward(item_seq, item_seq_len)
-        test_item_emb = self.get_item_features_table(cached=False)[test_item]
+        test_item_emb = self.embed_items([test_item])
         scores = torch.mul(seq_output, test_item_emb).sum(dim=1)
         return scores
 
@@ -183,7 +183,7 @@ class SASRecF2(SequentialRecommender):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         seq_output = self.forward(item_seq, item_seq_len)
-        test_items_emb = self.get_item_features_table(cached=True)
+        test_items_emb = self.get_item_features_table()
         scores = torch.matmul(
             seq_output, test_items_emb.transpose(0, 1)
         )  # [B, item_num]

@@ -1262,12 +1262,6 @@ class FeatureSeqEmbLayer(ContextSeqEmbAbstractLayer):
         self.get_fields_name_dim()
         self.get_embedding()
 
-    def checksum(self):
-        res = []
-        for p in self.parameters():
-            res.append(p.mean().item())
-        return sum(res)
-
 
 class CNNLayers(nn.Module):
     r"""CNNLayers
