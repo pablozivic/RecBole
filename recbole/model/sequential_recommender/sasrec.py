@@ -135,7 +135,7 @@ class SASRec(SequentialRecommender):
             seq_output = self.forward(item_seq, item_seq_len)
 
             items = interaction[self.POS_ITEM_ID]
-            items_emb = self.embed_items(items)
+            items_emb = self.item_embedding(items)
             logits = torch.mul(items_emb, seq_output).sum(1)
             return self.loss_fct(logits, interaction['label'])
         else:  # self.loss_type = 'CE'
