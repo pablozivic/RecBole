@@ -185,17 +185,14 @@ class AbstractSampler(object):
                     [
                         i
                         for i, used, v in zip(
-                            check_list,
-                            self.used_ids[key_ids[check_list]],
-                            value_ids[check_list],
-                        )
+                        check_list,
+                        self.used_ids[key_ids[check_list]],
+                        value_ids[check_list],
+                    )
                         if v in used
                     ]
                 )
         return torch.tensor(value_ids, dtype=torch.long)
-
-    def _co_count_sampling(self, sample_num, key_id):
-        raise NotImplementedError("Method [_co_count_sampling] should be implemented")
 
     def _build_co_counts_table(self):
         raise NotImplementedError("Method [_build_co_counts_table] should be implemented")
@@ -257,8 +254,8 @@ class Sampler(AbstractSampler):
         for phase, dataset in zip(self.phases, self.datasets):
             cur = np.array([set(s) for s in last])
             for uid, iid in zip(
-                dataset.inter_feat[self.uid_field].numpy(),
-                dataset.inter_feat[self.iid_field].numpy(),
+                    dataset.inter_feat[self.uid_field].numpy(),
+                    dataset.inter_feat[self.iid_field].numpy(),
             ):
                 cur[uid].add(iid)
             last = used_item_id[phase] = cur
@@ -311,6 +308,17 @@ class Sampler(AbstractSampler):
                 if user_id < 0 or user_id >= self.user_num:
                     raise ValueError(f"user_id [{user_id}] not exist.")
 
+    def _build_co_counts_table(self):
+        for phase, dt in zip(self.phases, self.datasets):
+            if phase == "train":
+                train = dt
+                break
+        else:
+            raise ValueError("No train dataset.")
+
+        co_counts = train.get_co_counts()
+        self.co_counts = {k: list(v) for k, v in co_counts.items()}
+
     def _co_count_sampling(self, sample_num, key_id):
         used = self.used_ids[key_id]
         candidates = set()
@@ -324,16 +332,6 @@ class Sampler(AbstractSampler):
         else:
             return np.random.choice(list(candidates), sample_num, replace=False)
 
-    def _build_co_counts_table(self):
-        for phase, dt in zip(self.phases, self.datasets):
-            if phase == "train":
-                train = dt
-                break
-        else:
-            raise ValueError("No train dataset.")
-
-        co_counts = train.get_co_counts()
-        self.co_counts = {k: list(v) for k, v in co_counts.items()}
 
 class KGSampler(AbstractSampler):
     """:class:`KGSampler` is used to sample negative entities in a knowledge graph.
@@ -409,19 +407,22 @@ class RepeatableSampler(AbstractSampler):
     Args:
         phases (str or list of str): All the phases of input.
         dataset (Dataset): The union of all datasets for each phase.
+        train_set (Dataset): Used to compute co-counts
         distribution (str, optional): Distribution of the negative items. Defaults to 'uniform'.
 
     Attributes:
         phase (str): the phase of sampler. It will not be set until :meth:`set_phase` is called.
     """
 
-    def __init__(self, phases, dataset, distribution="uniform", alpha=1.0):
+    def __init__(self, phases, dataset, train_set, distribution="uniform", alpha=1.0):
         if not isinstance(phases, list):
             phases = [phases]
         self.phases = phases
         self.dataset = dataset
+        self.train_set = train_set
 
         self.iid_field = dataset.iid_field
+        self.uid_field = dataset.uid_field
         self.user_num = dataset.user_num
         self.item_num = dataset.item_num
 
@@ -478,6 +479,29 @@ class RepeatableSampler(AbstractSampler):
         new_sampler = copy.copy(self)
         new_sampler.phase = phase
         return new_sampler
+
+    def _build_co_counts_table(self):
+        co_counts = self.train_set.get_co_counts()
+        self.co_counts = [list(co_counts[i]) for i in range(self.item_num)]
+        self.interacted = [set() for _ in range(self.user_num)]
+        for uid, iid in zip(
+                self.train_set.inter_feat[self.uid_field].numpy(),
+                self.train_set.inter_feat[self.iid_field].numpy(),
+        ):
+            self.interacted[uid].add(iid)
+
+    def _co_count_sampling(self, sample_num, key_id):
+        used = self.interacted[key_id]
+        candidates = set()
+        for iid in used:
+            candidates.update(self.co_counts[iid])
+
+        if len(candidates) == 0:
+            return self._uni_sampling(sample_num)
+        elif len(candidates) < sample_num:
+            return np.hstack((list(candidates), self._uni_sampling(sample_num - len(candidates))))
+        else:
+            return np.random.choice(list(candidates), sample_num, replace=False)
 
 
 class SeqSampler(AbstractSampler):
