@@ -134,7 +134,7 @@ class AbstractSampler(object):
             return self._uni_sampling(sample_num)
         elif self.distribution == "popularity":
             return self._pop_sampling(sample_num)
-        elif self.distribution == 'co-count':
+        elif self.distribution == 'co-counts':
             assert key_id is not None
             return self._co_count_sampling(sample_num, key_id)
         else:
