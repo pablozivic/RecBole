@@ -197,6 +197,9 @@ class AbstractSampler(object):
     def _build_co_counts_table(self):
         raise NotImplementedError("Method [_build_co_counts_table] should be implemented")
 
+    def _co_count_sampling(self, sample_num, key_id):
+        raise NotImplementedError("Method [_co_count_sampling] should be implemented")
+
 
 class Sampler(AbstractSampler):
     """:class:`Sampler` is used to sample negative items for each input user. In order to avoid positive items

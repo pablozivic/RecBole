@@ -322,6 +322,7 @@ def _create_sampler(
             sampler = RepeatableSampler(
                 phases,
                 dataset,
+                built_datasets[0],
                 distribution,
                 alpha,
             )
