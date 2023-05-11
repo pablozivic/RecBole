@@ -485,7 +485,12 @@ class RepeatableSampler(AbstractSampler):
 
     def _build_co_counts_table(self):
         co_counts = self.train_set.get_co_counts()
-        self.co_counts = [list(co_counts[i]) for i in range(self.item_num)]
+        int2id = self.dataset.field2id_token['item_id']
+        id2int = {id: i+1 for i, id in enumerate(int2id[1:].astype(int))}
+        self.co_counts = [
+            [id2int[id] for id in co_counts[int(int2id[i])]]
+            for i in range(self.item_num)
+        ]
         self.interacted = [set() for _ in range(self.user_num)]
         for uid, iid in zip(
                 self.train_set.inter_feat[self.uid_field].numpy(),
