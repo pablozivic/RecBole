@@ -230,7 +230,7 @@ class SequentialDataset(Dataset):
 
         co_counts = defaultdict(Counter)
         for u, items in groupby(zip(self[self.uid_field], self[self.iid_field]), lambda x: x[0]):
-            items = [e[1] for e in items]
+            items = [int(e[1]) for e in items]
             for i, i1 in enumerate(items):
                 for j in range(i + 1, len(items)):
                     co_counts[i1][items[j]] += 1
