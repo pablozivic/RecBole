@@ -48,6 +48,8 @@ class AbstractSampler(object):
         self.distribution = distribution
         if distribution == "popularity":
             self._build_alias_table()
+        elif distribution == 'co-counts':
+            self._build_co_counts_table()
 
     def _uni_sampling(self, sample_num):
         """Sample [sample_num] items in the uniform distribution.
@@ -119,7 +121,7 @@ class AbstractSampler(object):
 
         return np.array(final_random_list)
 
-    def sampling(self, sample_num):
+    def sampling(self, sample_num, key_id=None):
         """Sampling [sample_num] item_ids.
 
         Args:
@@ -132,6 +134,9 @@ class AbstractSampler(object):
             return self._uni_sampling(sample_num)
         elif self.distribution == "popularity":
             return self._pop_sampling(sample_num)
+        elif self.distribution == 'co-count':
+            assert key_id is not None
+            return self._co_count_sampling(sample_num, key_id)
         else:
             raise NotImplementedError(
                 f"The sampling distribution [{self.distribution}] is not implemented."
@@ -164,10 +169,10 @@ class AbstractSampler(object):
         if (key_ids == key_ids[0]).all():
             key_id = key_ids[0]
             used = np.array(list(self.used_ids[key_id]))
-            value_ids = self.sampling(total_num)
+            value_ids = self.sampling(total_num, key_id)
             check_list = np.arange(total_num)[np.isin(value_ids, used)]
             while len(check_list) > 0:
-                value_ids[check_list] = value = self.sampling(len(check_list))
+                value_ids[check_list] = value = self.sampling(len(check_list), key_id)
                 mask = np.isin(value, used)
                 check_list = check_list[mask]
         else:
@@ -188,6 +193,12 @@ class AbstractSampler(object):
                     ]
                 )
         return torch.tensor(value_ids, dtype=torch.long)
+
+    def _co_count_sampling(self, sample_num, key_id):
+        raise NotImplementedError("Method [_co_count_sampling] should be implemented")
+
+    def _build_co_counts_table(self):
+        raise NotImplementedError("Method [_build_co_counts_table] should be implemented")
 
 
 class Sampler(AbstractSampler):
@@ -300,6 +311,29 @@ class Sampler(AbstractSampler):
                 if user_id < 0 or user_id >= self.user_num:
                     raise ValueError(f"user_id [{user_id}] not exist.")
 
+    def _co_count_sampling(self, sample_num, key_id):
+        used = self.used_ids[key_id]
+        candidates = set()
+        for iid in used:
+            candidates.update(self.co_counts[iid])
+
+        if len(candidates) == 0:
+            return self._uni_sampling(sample_num)
+        elif len(candidates) < sample_num:
+            return np.random.choice(list(candidates), sample_num, replace=True)
+        else:
+            return np.random.choice(list(candidates), sample_num, replace=False)
+
+    def _build_co_counts_table(self):
+        for phase, dt in zip(self.phases, self.datasets):
+            if phase == "train":
+                train = dt
+                break
+        else:
+            raise ValueError("No train dataset.")
+
+        co_counts = train.get_co_counts()
+        self.co_counts = {k: list(v) for k, v in co_counts.items()}
 
 class KGSampler(AbstractSampler):
     """:class:`KGSampler` is used to sample negative entities in a knowledge graph.
