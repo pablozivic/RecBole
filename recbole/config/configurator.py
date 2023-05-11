@@ -539,10 +539,10 @@ class Config(object):
                     "dynamic": False,
                     "candidate_num": 0,
                 }
-            elif distribution not in ["uniform", "popularity"]:
+            elif distribution not in ["uniform", "popularity", 'co-counts']:
                 raise ValueError(
                     f"The distribution [{distribution}] of train_neg_sample_args "
-                    f"should in ['uniform', 'popularity']"
+                    f"should in ['uniform', 'popularity', 'co-counts']"
                 )
 
     def _set_eval_neg_sample_args(self, phase: Literal["valid", "test"]):
