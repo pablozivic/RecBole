@@ -179,7 +179,7 @@ class AbstractSampler(object):
             value_ids = []
             for key_id in key_ids:
                 used = np.array(list(self.used_ids[key_id]))
-                key_value_ids = self.sampling(total_num, key_id)
+                key_value_ids = self.sampling(num, key_id)
                 check_list = np.arange(num)[np.isin(value_ids, used)]
                 while len(check_list) > 0:
                     key_value_ids[check_list] = value = self.sampling(len(check_list), key_id)
