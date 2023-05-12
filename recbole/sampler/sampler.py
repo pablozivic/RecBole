@@ -516,12 +516,17 @@ class RepeatableSampler(AbstractSampler):
         for iid in used:
             candidates.update(self.co_counts[iid])
 
+        uni_samples = sample_num // 2
+        co_samples = sample_num - uni_samples
         if len(candidates) == 0:
             return self._uni_sampling(sample_num)
-        elif len(candidates) < sample_num:
+        elif len(candidates) < co_samples:
             return np.hstack((list(candidates), self._uni_sampling(sample_num - len(candidates))))
         else:
-            return np.random.choice(list(candidates), sample_num, replace=False)
+            return np.hstack((
+                self._uni_sampling(uni_samples),
+                np.random.choice(list(candidates), sample_num, replace=False))
+            )
 
 
 class SeqSampler(AbstractSampler):
