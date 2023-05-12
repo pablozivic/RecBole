@@ -50,6 +50,7 @@ class AbstractSampler(object):
             self._build_alias_table()
         elif distribution == 'co-counts':
             self._build_co_counts_table()
+            self._build_alias_table()
 
     def _uni_sampling(self, sample_num):
         """Sample [sample_num] items in the uniform distribution.
@@ -519,12 +520,12 @@ class RepeatableSampler(AbstractSampler):
         uni_samples = sample_num // 2
         co_samples = sample_num - uni_samples
         if len(candidates) == 0:
-            return self._uni_sampling(sample_num)
+            return self._pop_sampling(sample_num)
         elif len(candidates) < co_samples:
-            return np.hstack((list(candidates), self._uni_sampling(sample_num - len(candidates))))
+            return np.hstack((list(candidates), self._pop_sampling(sample_num - len(candidates))))
         else:
             return np.hstack((
-                self._uni_sampling(uni_samples),
+                self._pop_sampling(uni_samples),
                 np.random.choice(list(candidates), co_samples, replace=False))
             )
 
