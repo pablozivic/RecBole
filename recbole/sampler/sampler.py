@@ -121,7 +121,7 @@ class AbstractSampler(object):
 
         return np.array(final_random_list)
 
-    def sampling(self, sample_num, key_id=None):
+    def sampling(self, sample_num, key_ids=None):
         """Sampling [sample_num] item_ids.
 
         Args:
@@ -135,8 +135,8 @@ class AbstractSampler(object):
         elif self.distribution == "popularity":
             return self._pop_sampling(sample_num)
         elif self.distribution == 'co-counts':
-            assert key_id is not None
-            return self._co_count_sampling(sample_num, key_id)
+            assert key_ids is not None
+            return self._co_count_sampling(sample_num, key_ids)
         else:
             raise NotImplementedError(
                 f"The sampling distribution [{self.distribution}] is not implemented."
@@ -175,6 +175,17 @@ class AbstractSampler(object):
                 value_ids[check_list] = value = self.sampling(len(check_list), key_id)
                 mask = np.isin(value, used)
                 check_list = check_list[mask]
+        elif self.distribution == "co-counts":
+            value_ids = []
+            for key_id in key_ids:
+                used = np.array(list(self.used_ids[key_id]))
+                key_value_ids = self.sampling(total_num, key_id)
+                check_list = np.arange(total_num)[np.isin(value_ids, used)]
+                while len(check_list) > 0:
+                    key_value_ids[check_list] = value = self.sampling(len(check_list), key_id)
+                    mask = np.isin(value, used)
+                    check_list = check_list[mask]
+                value_ids.append(key_value_ids)
         else:
             value_ids = np.zeros(total_num, dtype=np.int64)
             check_list = np.arange(total_num)
@@ -197,7 +208,7 @@ class AbstractSampler(object):
     def _build_co_counts_table(self):
         raise NotImplementedError("Method [_build_co_counts_table] should be implemented")
 
-    def _co_count_sampling(self, sample_num, key_id):
+    def _co_count_sampling(self, sample_num, key_ids):
         raise NotImplementedError("Method [_co_count_sampling] should be implemented")
 
 
@@ -322,8 +333,8 @@ class Sampler(AbstractSampler):
         co_counts = train.get_co_counts()
         self.co_counts = {k: list(v) for k, v in co_counts.items()}
 
-    def _co_count_sampling(self, sample_num, key_id):
-        used = self.used_ids[key_id]
+    def _co_count_sampling(self, sample_num, key_ids):
+        used = self.used_ids[key_ids]
         candidates = set()
         for iid in used:
             candidates.update(self.co_counts[iid])
