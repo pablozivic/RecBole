@@ -525,7 +525,7 @@ class RepeatableSampler(AbstractSampler):
         else:
             return np.hstack((
                 self._uni_sampling(uni_samples),
-                np.random.choice(list(candidates), sample_num, replace=False))
+                np.random.choice(list(candidates), co_samples, replace=False))
             )
 
 
