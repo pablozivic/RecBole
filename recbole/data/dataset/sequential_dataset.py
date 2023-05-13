@@ -229,7 +229,7 @@ class SequentialDataset(Dataset):
         from itertools import groupby
 
         co_counts = defaultdict(Counter)
-        for u, items in groupby(zip(self[self.uid_field], self[self.iid_field]), lambda x: x[0]):
+        for u, items in groupby(zip(self.inter_feat[self.uid_field], self.inter_feat[self.iid_field]), lambda x: x[0]):
             items = [int(e[1]) for e in items]
             for i, i1 in enumerate(items):
                 for j in range(i + 1, len(items)):
