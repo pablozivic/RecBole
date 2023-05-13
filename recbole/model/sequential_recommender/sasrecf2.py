@@ -162,8 +162,12 @@ class SASRecF2(SequentialRecommender):
         pos_items = interaction[self.POS_ITEM_ID]
         if self.loss_type == "COS":
             pos_items_emb = self.embed_items(pos_items)
-            loss = self.loss_fct(seq_output, pos_items_emb, torch.ones(pos_items_emb.shape[0]).to(self.device))
+            loss = self.loss_fct(seq_output, pos_items_emb, interaction["label"])
             return loss
+        elif self.loss_type == 'NS':
+            items_emb = self.embed_items(pos_items)
+            logits = torch.mul(items_emb, seq_output).sum(1)
+            return self.loss_fct(logits, interaction['label'])
         elif self.loss_type == 'CE':
             test_item_emb = self.get_item_features_table()
             logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
