@@ -501,7 +501,7 @@ class RepeatableSampler(AbstractSampler):
         int2id = self.dataset.field2id_token['item_id']
         id2int = {id: i+1 for i, id in enumerate(int2id[1:])}
         self.co_counts = [[]] + [
-            [id2int[id] for id in co_counts.get(int(int2id[i]), [])]
+            [id2int[id] for id in co_counts.get(int2id[i], [])]
             for i in range(1, self.item_num)
         ]
         self.interacted = [set() for _ in range(self.user_num)]
