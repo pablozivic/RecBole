@@ -512,10 +512,12 @@ class RepeatableSampler(AbstractSampler):
             self.interacted[uid].add(iid)
 
     def _co_count_sampling(self, sample_num, key_id):
-        used = self.interacted[key_id]
+        used = self.interacted[key_id-1]  # key_id starts from 1
         candidates = set()
         for iid in used:
             candidates.update(self.co_counts[iid])
+            if candidates: break
+        candidates -= used
 
         uni_samples = sample_num // 2
         co_samples = sample_num - uni_samples
