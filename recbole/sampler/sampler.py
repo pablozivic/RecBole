@@ -383,12 +383,15 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = datasets[0].user_num
         self.item_num = datasets[0].item_num
 
+        self.pop_sampler = Sampler(phases, datasets, distribution='popularity', alpha=0.75)
+
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
 
     def set_phase(self, phase):
         new_sampler = copy.copy(self)
         new_sampler.phase = phase
+        new_sampler.pop_sampler = new_sampler.pop_sampler.set_phase(phase)
         new_sampler._build_co_counts_table()
         return new_sampler
 
@@ -409,7 +412,11 @@ class CoCountsSampler(AbstractSampler):
 
         rows = torch.arange(n_rows).repeat(num)
 
-        return related[rows, indices]
+        res = related[rows, indices]
+        zeros = res == 0
+        n_zeros = zeros.sum()
+        res[zeros] = self.pop_sampler.sampling(n_zeros)
+        return res
 
     @property
     def dataset(self):
