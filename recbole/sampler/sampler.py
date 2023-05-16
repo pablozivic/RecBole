@@ -384,7 +384,8 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = datasets[0].user_num
         self.item_num = datasets[0].item_num
 
-        self.pop_sampler = Sampler(phases, datasets, distribution='popularity', alpha=0.75)
+        # self.pop_sampler = Sampler(phases, datasets, distribution='popularity', alpha=0.75)
+        self.pop_sampler = Sampler(phases, datasets, distribution='uniform')
 
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
@@ -427,7 +428,7 @@ class CoCountsSampler(AbstractSampler):
         zeros = res == 0
         n_zeros = int(zeros.sum())
         res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype)
-        
+
         if self.pop_pct:
             user_ids = inter_feat[self.uid_field].numpy()
             item_ids = inter_feat[self.iid_field].numpy()
