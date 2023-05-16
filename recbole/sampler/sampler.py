@@ -380,6 +380,9 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = train_set.user_num
         self.item_num = train_set.item_num
 
+    def set_distribution(self, distribution):
+        assert distribution == 'co-counts'
+
     def set_phase(self, phase):
         assert phase == 'train'
         return self
