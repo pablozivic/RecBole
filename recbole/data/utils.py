@@ -326,7 +326,8 @@ def _create_sampler(
             assert min_co_count is not None, 'min_co_count must be specified for co-counts distribution'
 
             sampler = CoCountsSampler(
-                built_datasets[0],
+                phases,
+                built_datasets,
                 co_counts_candidates,
                 min_co_count
             )
