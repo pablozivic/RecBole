@@ -229,10 +229,18 @@ class SequentialDataset(Dataset):
         from itertools import groupby
 
         co_counts = defaultdict(Counter)
-        for u, items in groupby(zip(self.inter_feat[self.uid_field], self.inter_feat[self.iid_field]), lambda x: x[0]):
-            items = [int(e[1]) for e in items]
+        data = zip(
+            self.inter_feat[self.uid_field],
+            self.inter_feat[self.iid_field],
+            # this corresponds to the first interaction which never is a target
+            self.inter_feat[self.iid_field + '_list'][:, 0]
+        )
+        for _, ud in groupby(data, key=lambda x: x[0]):
+            ud = list(ud)
+            items = [ud[0][2]]
+            items.extend([e[1] for e in ud])
             for i, i1 in enumerate(items):
                 for j in range(i + 1, len(items)):
-                    co_counts[i1][items[j]] += 1
+                    co_counts[int(i1)][int(items[j])] += 1
 
         return {k: dict(v) for k, v in co_counts.items()}
