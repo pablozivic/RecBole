@@ -415,7 +415,7 @@ class CoCountsSampler(AbstractSampler):
         res = related[rows, indices]
         zeros = res == 0
         n_zeros = int(zeros.sum())
-        res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros))
+        res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype)
         return res
 
     @property
