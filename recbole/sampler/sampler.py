@@ -369,23 +369,26 @@ class KGSampler(AbstractSampler):
 
 
 class CoCountsSampler(AbstractSampler):
-    def __init__(self, train_set, n_candidates, min_co_count=1):
-        self.train_set = train_set
+    def __init__(self, phases, datasets, n_candidates, min_co_count=1, phase=None):
+        self.phases = phases
+        self.datasets = datasets
         self.n_candidates = n_candidates
         self.min_co_count = min_co_count
+        self.phase = phase
 
-        self.uid_field = train_set.uid_field
-        self.iid_field = train_set.iid_field
+        self.uid_field = datasets[0].uid_field
+        self.iid_field = datasets[0].iid_field
 
-        self.user_num = train_set.user_num
-        self.item_num = train_set.item_num
+        self.user_num = datasets[0].user_num
+        self.item_num = datasets[0].item_num
 
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
 
     def set_phase(self, phase):
-        assert phase == 'train'
-        return self
+        new_sampler = copy.copy(self)
+        new_sampler.phase = phase
+        return new_sampler
 
     def sample_by_user_ids(self, user_ids, item_ids, num):
         """Sampling by user_ids.
@@ -396,8 +399,14 @@ class CoCountsSampler(AbstractSampler):
         """
         pass
 
+    @property
+    def dataset(self):
+        for phase, dataset in zip(self.phases, self.datasets):
+            if phase == self.phase: return dataset
+        raise RuntimeError('phase not set')
+
     def _build_co_counts_table(self):
-        co_counts = self.train_set.get_co_counts()
+        co_counts = self.dataset.get_co_counts()
         self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
         for iid, co_counts in co_counts.items():
             top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
