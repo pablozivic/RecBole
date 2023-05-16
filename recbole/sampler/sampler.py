@@ -434,19 +434,17 @@ class RepeatableSampler(AbstractSampler):
     Args:
         phases (str or list of str): All the phases of input.
         dataset (Dataset): The union of all datasets for each phase.
-        train_set (Dataset): Used to compute co-counts
         distribution (str, optional): Distribution of the negative items. Defaults to 'uniform'.
 
     Attributes:
         phase (str): the phase of sampler. It will not be set until :meth:`set_phase` is called.
     """
 
-    def __init__(self, phases, dataset, train_set, distribution="uniform", alpha=1.0):
+    def __init__(self, phases, dataset, distribution="uniform", alpha=1.0):
         if not isinstance(phases, list):
             phases = [phases]
         self.phases = phases
         self.dataset = dataset
-        self.train_set = train_set
 
         self.iid_field = dataset.iid_field
         self.uid_field = dataset.uid_field
