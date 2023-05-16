@@ -380,6 +380,10 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = train_set.user_num
         self.item_num = train_set.item_num
 
+    def set_phase(self, phase):
+        assert phase == 'train'
+        return self
+
     def sample_by_user_ids(self, user_ids, item_ids, num):
         """Sampling by user_ids.
 
