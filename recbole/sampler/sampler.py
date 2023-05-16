@@ -48,9 +48,6 @@ class AbstractSampler(object):
         self.distribution = distribution
         if distribution == "popularity":
             self._build_alias_table()
-        elif distribution == 'co-counts':
-            self._build_co_counts_table()
-            self._build_alias_table()
 
     def _uni_sampling(self, sample_num):
         """Sample [sample_num] items in the uniform distribution.
@@ -122,7 +119,7 @@ class AbstractSampler(object):
 
         return np.array(final_random_list)
 
-    def sampling(self, sample_num, key_ids=None):
+    def sampling(self, sample_num):
         """Sampling [sample_num] item_ids.
 
         Args:
@@ -135,9 +132,6 @@ class AbstractSampler(object):
             return self._uni_sampling(sample_num)
         elif self.distribution == "popularity":
             return self._pop_sampling(sample_num)
-        elif self.distribution == 'co-counts':
-            assert key_ids is not None
-            return self._co_count_sampling(sample_num, key_ids)
         else:
             raise NotImplementedError(
                 f"The sampling distribution [{self.distribution}] is not implemented."
@@ -170,24 +164,12 @@ class AbstractSampler(object):
         if (key_ids == key_ids[0]).all():
             key_id = key_ids[0]
             used = np.array(list(self.used_ids[key_id]))
-            value_ids = self.sampling(total_num, key_id)
+            value_ids = self.sampling(total_num)
             check_list = np.arange(total_num)[np.isin(value_ids, used)]
             while len(check_list) > 0:
-                value_ids[check_list] = value = self.sampling(len(check_list), key_id)
+                value_ids[check_list] = value = self.sampling(len(check_list))
                 mask = np.isin(value, used)
                 check_list = check_list[mask]
-        elif self.distribution == "co-counts":
-            value_ids = []
-            for key_id in key_ids:
-                used = np.array(list(self.used_ids[key_id]))
-                key_value_ids = self.sampling(num, key_id)
-                check_list = np.arange(num)[np.isin(key_value_ids, used)]
-                while len(check_list) > 0:
-                    key_value_ids[check_list] = value = self.sampling(len(check_list), key_id)
-                    mask = np.isin(value, used)
-                    check_list = check_list[mask]
-                value_ids.extend(key_value_ids)
-            assert len(value_ids) == total_num
         else:
             value_ids = np.zeros(total_num, dtype=np.int64)
             check_list = np.arange(total_num)
@@ -206,12 +188,6 @@ class AbstractSampler(object):
                     ]
                 )
         return torch.tensor(value_ids, dtype=torch.long)
-
-    def _build_co_counts_table(self):
-        raise NotImplementedError("Method [_build_co_counts_table] should be implemented")
-
-    def _co_count_sampling(self, sample_num, key_ids):
-        raise NotImplementedError("Method [_co_count_sampling] should be implemented")
 
 
 class Sampler(AbstractSampler):
@@ -324,30 +300,6 @@ class Sampler(AbstractSampler):
                 if user_id < 0 or user_id >= self.user_num:
                     raise ValueError(f"user_id [{user_id}] not exist.")
 
-    def _build_co_counts_table(self):
-        for phase, dt in zip(self.phases, self.datasets):
-            if phase == "train":
-                train = dt
-                break
-        else:
-            raise ValueError("No train dataset.")
-
-        co_counts = train.get_co_counts()
-        self.co_counts = {k: list(v) for k, v in co_counts.items()}
-
-    def _co_count_sampling(self, sample_num, key_ids):
-        used = self.used_ids[key_ids]
-        candidates = set()
-        for iid in used:
-            candidates.update(self.co_counts[iid])
-
-        if len(candidates) == 0:
-            return self._uni_sampling(sample_num)
-        elif len(candidates) < sample_num:
-            return np.random.choice(list(candidates), sample_num, replace=True)
-        else:
-            return np.random.choice(list(candidates), sample_num, replace=False)
-
 
 class KGSampler(AbstractSampler):
     """:class:`KGSampler` is used to sample negative entities in a knowledge graph.
@@ -416,6 +368,58 @@ class KGSampler(AbstractSampler):
                     raise ValueError(f"head_entity_id [{head_entity_id}] not exist.")
 
 
+class CoCountsSampler(AbstractSampler):
+    def __init__(self, train_set, n_candidates, min_co_count=1):
+        self.train_set = train_set
+        self.n_candidates = n_candidates
+        self.min_co_count = min_co_count
+
+        self.uid_field = train_set.uid_field
+        self.iid_field = train_set.iid_field
+
+        self.user_num = train_set.user_num
+        self.item_num = train_set.item_num
+
+    def sample_by_user_ids(self, user_ids, item_ids, num):
+        """Sampling by user_ids.
+
+        Args:
+            user_ids (numpy.ndarray or list): Input user_ids.
+            num (int, optional): Number of sampled item_ids for each user_id. Defaults to 1
+        """
+        pass
+
+    def _build_co_counts_table(self):
+        co_counts = self.train_set.get_co_counts()
+        self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
+        for iid, co_counts in co_counts.items():
+            top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
+            for i, (co_iid, co_count) in enumerate(top_co_counts):
+                if co_count <= self.min_co_count: break
+                if i >= self.n_candidates: break
+                self.co_counts_table[iid, i] = co_iid
+
+    def _co_count_sampling(self, sample_num, key_id):
+        used = self.interacted[key_id]
+        candidates = set()
+        for iid in used:
+            candidates.update(self.co_counts[iid])
+            if candidates: break
+        candidates -= used
+
+        uni_samples = sample_num // 2
+        co_samples = sample_num - uni_samples
+        if len(candidates) == 0:
+            return self._pop_sampling(sample_num)
+        elif len(candidates) < co_samples:
+            return np.hstack((list(candidates), self._pop_sampling(sample_num - len(candidates))))
+        else:
+            return np.hstack((
+                self._pop_sampling(uni_samples),
+                np.random.choice(list(candidates), co_samples, replace=False))
+            )
+
+
 class RepeatableSampler(AbstractSampler):
     """:class:`RepeatableSampler` is used to sample negative items for each input user. The difference from
     :class:`Sampler` is it can only sampling the items that have not appeared at all phases.
@@ -476,10 +480,11 @@ class RepeatableSampler(AbstractSampler):
         try:
             self.used_ids = np.array([{i} for i in item_ids])
             return self.sample_by_key_ids(np.arange(len(user_ids)), num)
-        except IndexError:
+        except IndexError as e:
             for user_id in user_ids:
                 if user_id < 0 or user_id >= self.user_num:
                     raise ValueError(f"user_id [{user_id}] not exist.")
+            raise e
 
     def set_phase(self, phase):
         """Get the sampler of corresponding phase.
@@ -495,41 +500,6 @@ class RepeatableSampler(AbstractSampler):
         new_sampler = copy.copy(self)
         new_sampler.phase = phase
         return new_sampler
-
-    def _build_co_counts_table(self):
-        co_counts = self.train_set.get_co_counts()
-        int2id = self.dataset.field2id_token['item_id']
-        id2int = {id: i+1 for i, id in enumerate(int2id[1:])}
-        self.co_counts = [[]] + [
-            [id2int[id] for id in co_counts.get(int2id[i], [])]
-            for i in range(1, self.item_num)
-        ]
-        self.interacted = [set() for _ in range(self.user_num)]
-        for uid, iid in zip(
-                self.train_set.inter_feat[self.uid_field].numpy(),
-                self.train_set.inter_feat[self.iid_field].numpy(),
-        ):
-            self.interacted[uid].add(iid)
-
-    def _co_count_sampling(self, sample_num, key_id):
-        used = self.interacted[key_id-1]  # key_id starts from 1
-        candidates = set()
-        for iid in used:
-            candidates.update(self.co_counts[iid])
-            if candidates: break
-        candidates -= used
-
-        uni_samples = sample_num // 2
-        co_samples = sample_num - uni_samples
-        if len(candidates) == 0:
-            return self._pop_sampling(sample_num)
-        elif len(candidates) < co_samples:
-            return np.hstack((list(candidates), self._pop_sampling(sample_num - len(candidates))))
-        else:
-            return np.hstack((
-                self._pop_sampling(uni_samples),
-                np.random.choice(list(candidates), co_samples, replace=False))
-            )
 
 
 class SeqSampler(AbstractSampler):
