@@ -385,11 +385,11 @@ class CoCountsSampler(AbstractSampler):
 
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
-        self._build_co_counts_table()
 
     def set_phase(self, phase):
         new_sampler = copy.copy(self)
         new_sampler.phase = phase
+        new_sampler._build_co_counts_table()
         return new_sampler
 
     def sample_by_co_counts(self, inter_feat, num):
