@@ -369,11 +369,12 @@ class KGSampler(AbstractSampler):
 
 
 class CoCountsSampler(AbstractSampler):
-    def __init__(self, phases, datasets, n_candidates, min_co_count=1, phase=None):
+    def __init__(self, phases, datasets, n_candidates, min_co_count=1, pct_pop=0.25, phase=None):
         self.phases = phases
         self.datasets = datasets
         self.n_candidates = n_candidates
         self.min_co_count = min_co_count
+        self.pop_pct = pct_pop
         self.phase = phase
 
         self.distribution = 'co-counts'
@@ -396,6 +397,12 @@ class CoCountsSampler(AbstractSampler):
         return new_sampler
 
     def sample_by_co_counts(self, inter_feat, num):
+        if self.pop_pct:
+            co_count_num = int(num * (1 - self.pop_pct))
+            pop_num = num - co_count_num
+        else:
+            co_count_num = num
+
         history = inter_feat.item_id_list
         indices = torch.nonzero(history)
         rows = indices[:, 0].unique()
@@ -412,14 +419,22 @@ class CoCountsSampler(AbstractSampler):
         related[related == target] = 0
 
         n_rows = triggers.size(0)
-        indices = torch.randint(0, self.n_candidates, (n_rows * num,))
+        indices = torch.randint(0, self.n_candidates, (n_rows * co_count_num,))
 
-        rows = torch.arange(n_rows).repeat(num)
+        rows = torch.arange(n_rows).repeat(co_count_num)
 
         res = related[rows, indices]
         zeros = res == 0
         n_zeros = int(zeros.sum())
         res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype)
+        
+        if self.pop_pct:
+            user_ids = inter_feat[self.uid_field].numpy()
+            item_ids = inter_feat[self.iid_field].numpy()
+
+            pop_res = self.pop_sampler.sample_by_user_ids(user_ids, item_ids, pop_num)
+            res = torch.cat([res, pop_res], dim=0)
+
         return res
 
     @property
