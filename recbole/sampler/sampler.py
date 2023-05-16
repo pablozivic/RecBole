@@ -394,6 +394,7 @@ class CoCountsSampler(AbstractSampler):
         new_sampler = copy.copy(self)
         new_sampler.phase = phase
         new_sampler.pop_sampler = new_sampler.pop_sampler.set_phase(phase)
+        new_sampler.uni_sampler = new_sampler.uni_sampler.set_phase(phase)
         new_sampler._build_co_counts_table()
         return new_sampler
 
