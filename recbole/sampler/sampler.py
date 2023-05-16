@@ -400,12 +400,16 @@ class CoCountsSampler(AbstractSampler):
         indices = torch.nonzero(history)
         rows = indices[:, 0].unique()
 
+        # get the last interacted item (might be a good idea to use them all to gather candidates)
         second_column = indices[:, 1]
         cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
         cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])
 
-        triggers = history[rows, cols]
-        related = self.co_counts_table[triggers]
+        triggers = history[rows, cols]  # [B]
+        related = self.co_counts_table[triggers]  # [B, n_candidates]
+        # remove positive from candidates
+        target = inter_feat.item_id.repeat_interleave(self.n_candidates).reshape(related.size(0), -1)
+        related[related == target] = 0
 
         n_rows = triggers.size(0)
         indices = torch.randint(0, self.n_candidates, (n_rows * num,))
