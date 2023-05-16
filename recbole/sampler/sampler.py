@@ -369,7 +369,7 @@ class KGSampler(AbstractSampler):
 
 
 class CoCountsSampler(AbstractSampler):
-    def __init__(self, phases, datasets, n_candidates, min_co_count=1, pct_pop=0.25, phase=None):
+    def __init__(self, phases, datasets, n_candidates, min_co_count=1, pct_pop=0.5, phase=None):
         self.phases = phases
         self.datasets = datasets
         self.n_candidates = n_candidates
@@ -384,8 +384,8 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = datasets[0].user_num
         self.item_num = datasets[0].item_num
 
-        # self.pop_sampler = Sampler(phases, datasets, distribution='popularity', alpha=0.75)
-        self.pop_sampler = Sampler(phases, datasets, distribution='uniform')
+        self.pop_sampler = Sampler(phases, datasets, distribution='popularity', alpha=0.75)
+        self.uni_sampler = Sampler(phases, datasets, distribution='uniform')
 
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
@@ -400,7 +400,9 @@ class CoCountsSampler(AbstractSampler):
     def sample_by_co_counts(self, inter_feat, num):
         if self.pop_pct:
             co_count_num = int(num * (1 - self.pop_pct))
-            pop_num = num - co_count_num
+            fallback_num = num - co_count_num
+            pop_num = fallback_num // 2
+            uni_num = fallback_num - pop_num
         else:
             co_count_num = num
 
@@ -434,7 +436,8 @@ class CoCountsSampler(AbstractSampler):
             item_ids = inter_feat[self.iid_field].numpy()
 
             pop_res = self.pop_sampler.sample_by_user_ids(user_ids, item_ids, pop_num)
-            res = torch.cat([res, pop_res], dim=0)
+            uni_res = self.uni_sampler.sample_by_user_ids(user_ids, item_ids, uni_num)
+            res = torch.cat([res, pop_res, uni_res], dim=0)
 
         return res
 
