@@ -311,9 +311,10 @@ def _create_sampler(
     phases = ["train", "valid", "test"]
     sampler = None
     if distribution != "none":
-        if base_sampler is not None:
+        if base_sampler is not None and distribution != 'co-counts':
             base_sampler.set_distribution(distribution)
             return base_sampler
+        
         if not repeatable:
             sampler = Sampler(
                 phases,
