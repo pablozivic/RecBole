@@ -205,11 +205,15 @@ class NegSampleDataLoader(AbstractDataLoader):
             self.neg_sample_args["distribution"] != "none"
             and self.neg_sample_args["sample_num"] != "none"
         ):
-            user_ids = inter_feat[self.uid_field].numpy()
-            item_ids = inter_feat[self.iid_field].numpy()
-            neg_item_ids = self._sampler.sample_by_user_ids(
-                user_ids, item_ids, self.neg_sample_num
-            )
+            if self.neg_sample_args['distribution'] == 'co-counts':
+                neg_item_ids = self._sampler.sample_by_co_counts(inter_feat, self.neg_sample_num)
+            else:
+                user_ids = inter_feat[self.uid_field].numpy()
+                item_ids = inter_feat[self.iid_field].numpy()
+                neg_item_ids = self._sampler.sample_by_user_ids(
+                    user_ids, item_ids, self.neg_sample_num
+                )
+
             return self.sampling_func(inter_feat, neg_item_ids)
         else:
             return inter_feat

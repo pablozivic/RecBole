@@ -391,14 +391,24 @@ class CoCountsSampler(AbstractSampler):
         new_sampler.phase = phase
         return new_sampler
 
-    def sample_by_user_ids(self, user_ids, item_ids, num):
-        """Sampling by user_ids.
+    def sample_by_co_counts(self, inter_feat, num):
+        history = inter_feat.item_id_list
+        indices = torch.nonzero(history)
+        rows = indices[:, 0].unique()
 
-        Args:
-            user_ids (numpy.ndarray or list): Input user_ids.
-            num (int, optional): Number of sampled item_ids for each user_id. Defaults to 1
-        """
-        pass
+        second_column = indices[:, 1]
+        cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
+        cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])
+
+        triggers = history[rows, cols]
+        related = self.co_counts_table[triggers]
+
+        n_rows = triggers.size(0)
+        indices = torch.randint(0, self.n_candidates, (n_rows * num,))
+
+        rows = torch.arange(n_rows).repeat(num)
+
+        return related[rows, indices]
 
     @property
     def dataset(self):
@@ -415,26 +425,6 @@ class CoCountsSampler(AbstractSampler):
                 if co_count <= self.min_co_count: break
                 if i >= self.n_candidates: break
                 self.co_counts_table[iid, i] = co_iid
-
-    def _co_count_sampling(self, sample_num, key_id):
-        used = self.interacted[key_id]
-        candidates = set()
-        for iid in used:
-            candidates.update(self.co_counts[iid])
-            if candidates: break
-        candidates -= used
-
-        uni_samples = sample_num // 2
-        co_samples = sample_num - uni_samples
-        if len(candidates) == 0:
-            return self._pop_sampling(sample_num)
-        elif len(candidates) < co_samples:
-            return np.hstack((list(candidates), self._pop_sampling(sample_num - len(candidates))))
-        else:
-            return np.hstack((
-                self._pop_sampling(uni_samples),
-                np.random.choice(list(candidates), co_samples, replace=False))
-            )
 
 
 class RepeatableSampler(AbstractSampler):
