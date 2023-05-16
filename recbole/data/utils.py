@@ -365,8 +365,8 @@ def create_samplers(config, dataset, built_datasets):
         train_neg_sample_args["distribution"],
         repeatable,
         train_neg_sample_args["alpha"],
-        train_neg_sample_args.get("co_counts_candidates"),
-        train_neg_sample_args.get("min_co_count"),
+        co_counts_candidates=train_neg_sample_args.get("co_counts_candidates"),
+        min_co_count=train_neg_sample_args.get("min_co_count"),
     )
     train_sampler = base_sampler.set_phase("train") if base_sampler else None
 
