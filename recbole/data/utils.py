@@ -21,6 +21,7 @@ from typing import Literal
 
 from recbole.data.dataloader import *
 from recbole.sampler import KGSampler, Sampler, RepeatableSampler
+from recbole.sampler.sampler import CoCountsSampler
 from recbole.utils import ModelType, ensure_dir, get_local_time, set_color
 from recbole.utils.argument_list import dataset_arguments
 
@@ -304,6 +305,8 @@ def _create_sampler(
     repeatable: bool,
     alpha: float = 1.0,
     base_sampler=None,
+    n_candidates=None,
+    min_co_count=None
 ):
     phases = ["train", "valid", "test"]
     sampler = None
@@ -318,11 +321,19 @@ def _create_sampler(
                 distribution,
                 alpha,
             )
+        elif distribution == 'co-counts':
+            assert n_candidates is not None, 'n_candidates must be specified for co-counts distribution'
+            assert min_co_count is not None, 'min_co_count must be specified for co-counts distribution'
+            
+            sampler = CoCountsSampler(
+                built_datasets[0],
+                n_candidates,
+                min_co_count
+            )
         else:
             sampler = RepeatableSampler(
                 phases,
                 dataset,
-                built_datasets[0],
                 distribution,
                 alpha,
             )
@@ -354,9 +365,12 @@ def create_samplers(config, dataset, built_datasets):
         train_neg_sample_args["distribution"],
         repeatable,
         train_neg_sample_args["alpha"],
+        train_neg_sample_args.get("n_candidates"),
+        train_neg_sample_args.get("min_co_count"),
     )
     train_sampler = base_sampler.set_phase("train") if base_sampler else None
 
+    assert valid_neg_sample_args["distribution"] != 'co-counts', 'co-counts not supported for validation'
     valid_sampler = _create_sampler(
         dataset,
         built_datasets,
@@ -366,6 +380,7 @@ def create_samplers(config, dataset, built_datasets):
     )
     valid_sampler = valid_sampler.set_phase("valid") if valid_sampler else None
 
+    assert test_neg_sample_args["distribution"] != 'co-counts', 'co-counts not supported for testing'
     test_sampler = _create_sampler(
         dataset,
         built_datasets,
