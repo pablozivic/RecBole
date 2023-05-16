@@ -376,6 +376,7 @@ class CoCountsSampler(AbstractSampler):
         self.min_co_count = min_co_count
         self.phase = phase
 
+        self.distribution = 'co-counts'
         self.uid_field = datasets[0].uid_field
         self.iid_field = datasets[0].iid_field
 
