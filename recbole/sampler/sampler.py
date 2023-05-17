@@ -369,23 +369,23 @@ class KGSampler(AbstractSampler):
 
 
 class CoCountsSampler(AbstractSampler):
-    def __init__(self, phases, datasets, n_candidates, min_co_count=1, pct_pop=0.5, phase=None):
+    def __init__(self, phases, dataset, built_datasets, n_candidates, min_co_count=1, pct_pop=0.5, phase=None):
         self.phases = phases
-        self.datasets = datasets
+        self.built_datasets = built_datasets
         self.n_candidates = n_candidates
         self.min_co_count = min_co_count
         self.pop_pct = pct_pop
         self.phase = phase
 
         self.distribution = 'co-counts'
-        self.uid_field = datasets[0].uid_field
-        self.iid_field = datasets[0].iid_field
+        self.uid_field = built_datasets[0].uid_field
+        self.iid_field = built_datasets[0].iid_field
 
-        self.user_num = datasets[0].user_num
-        self.item_num = datasets[0].item_num
+        self.user_num = built_datasets[0].user_num
+        self.item_num = built_datasets[0].item_num
 
-        self.pop_sampler = RepeatableSampler(phases, datasets, distribution='popularity', alpha=0.75)
-        self.uni_sampler = RepeatableSampler(phases, datasets, distribution='uniform')
+        self.pop_sampler = RepeatableSampler(phases, dataset, distribution='popularity', alpha=0.75)
+        self.uni_sampler = RepeatableSampler(phases, dataset, distribution='uniform')
 
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
@@ -444,7 +444,7 @@ class CoCountsSampler(AbstractSampler):
 
     @property
     def dataset(self):
-        for phase, dataset in zip(self.phases, self.datasets):
+        for phase, dataset in zip(self.phases, self.built_datasets):
             if phase == self.phase: return dataset
         raise RuntimeError('phase not set')
 

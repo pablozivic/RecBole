@@ -328,6 +328,7 @@ def _create_sampler(
 
             sampler = CoCountsSampler(
                 phases,
+                dataset,
                 built_datasets,
                 co_counts_candidates,
                 min_co_count
