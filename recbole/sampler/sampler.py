@@ -384,8 +384,8 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = datasets[0].user_num
         self.item_num = datasets[0].item_num
 
-        self.pop_sampler = Sampler(phases, datasets, distribution='popularity', alpha=0.75)
-        self.uni_sampler = Sampler(phases, datasets, distribution='uniform')
+        self.pop_sampler = RepeatableSampler(phases, datasets, distribution='popularity', alpha=0.75)
+        self.uni_sampler = RepeatableSampler(phases, datasets, distribution='uniform')
 
     def set_distribution(self, distribution):
         assert distribution == 'co-counts'
