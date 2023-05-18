@@ -369,12 +369,14 @@ class KGSampler(AbstractSampler):
 
 
 class CoCountsSampler(AbstractSampler):
-    def __init__(self, phases, dataset, built_datasets, n_candidates, min_co_count=1, pop_pct=0.5, phase=None):
+    def __init__(self, phases, dataset, built_datasets, n_candidates, min_co_count=1, pop_pct=0.5,
+                 random_trigger=False, phase=None):
         self.phases = phases
         self.built_datasets = built_datasets
         self.n_candidates = n_candidates
         self.min_co_count = min_co_count
         self.pop_pct = pop_pct
+        self.random_trigger = random_trigger
         self.phase = phase
 
         self.distribution = 'co-counts'
@@ -416,9 +418,10 @@ class CoCountsSampler(AbstractSampler):
         cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
         cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])  # [B]
 
-        # select a random item as trigger from the last interacted items
-        v = torch.rand(cols.size())
-        cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
+        if self.random_trigger:
+            # select a random item as trigger from the last interacted items
+            v = torch.rand(cols.size())
+            cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
 
         triggers = history[rows, cols]  # [B]
         related = self.co_counts_table[triggers]  # [B, n_candidates]
