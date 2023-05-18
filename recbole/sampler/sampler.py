@@ -369,12 +369,12 @@ class KGSampler(AbstractSampler):
 
 
 class CoCountsSampler(AbstractSampler):
-    def __init__(self, phases, dataset, built_datasets, n_candidates, min_co_count=1, pct_pop=0.5, phase=None):
+    def __init__(self, phases, dataset, built_datasets, n_candidates, min_co_count=1, pop_pct=0.5, phase=None):
         self.phases = phases
         self.built_datasets = built_datasets
         self.n_candidates = n_candidates
         self.min_co_count = min_co_count
-        self.pop_pct = pct_pop
+        self.pop_pct = pop_pct
         self.phase = phase
 
         self.distribution = 'co-counts'
