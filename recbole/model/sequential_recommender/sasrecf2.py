@@ -14,6 +14,7 @@ from torch import nn
 from recbole.model.abstract_recommender import SequentialRecommender
 from recbole.model.layers import TransformerEncoder, FeatureSeqEmbLayer
 from recbole.model.loss import BPRLoss
+from recbole.sampler import RepeatableSampler
 from recbole.utils import FeatureType
 
 
@@ -90,6 +91,9 @@ class SASRecF2(SequentialRecommender):
         elif self.loss_type == "CE":
             self.loss_fct = nn.CrossEntropyLoss()
         elif self.loss_type == "NS":
+            self.loss_fct = nn.BCEWithLogitsLoss()
+        elif self.loss_type == 'NS2':
+            self.sampler = RepeatableSampler('train', dataset)
             self.loss_fct = nn.BCEWithLogitsLoss()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
@@ -175,6 +179,16 @@ class SASRecF2(SequentialRecommender):
             logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
             loss = self.loss_fct(logits, pos_items)
             return loss
+        elif self.loss_type == 'NS2':
+            pos_items_emb = self.embed_items(pos_items).repeat(10)
+            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, 10))
+            pos_logits = torch.matmul(seq_output, pos_items_emb.transpose(0, 1))
+            neg_logits = torch.matmul(seq_output, neg_items_emb.transpose(0, 1))
+            label = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=1).to(self.device)
+            logits = torch.cat([pos_logits, neg_logits], dim=1)
+            loss = self.loss_fct(logits, label)
+            return loss
+
 
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
