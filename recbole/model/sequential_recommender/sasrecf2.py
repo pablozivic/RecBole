@@ -16,6 +16,7 @@ from recbole.model.abstract_recommender import SequentialRecommender
 from recbole.model.layers import TransformerEncoder, FeatureSeqEmbLayer
 from recbole.model.loss import BPRLoss
 from recbole.sampler import RepeatableSampler
+from recbole.sampler.sampler import AbstractSampler
 from recbole.utils import FeatureType
 
 
@@ -99,6 +100,7 @@ class SASRecF2(SequentialRecommender):
         elif self.loss_type == 'InfoNCE':
             self.sampler = RepeatableSampler('train', dataset)
             self.num_negatives = config['nce_num_negatives']
+            self.sampler = CoCountsSampler(dataset, n_candidates=50, min_co_count=5)
             self.loss_fct = nn.CrossEntropyLoss()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
@@ -186,7 +188,8 @@ class SASRecF2(SequentialRecommender):
             return loss
         elif self.loss_type == 'InfoNCE':
             pos_items_emb = self.embed_items(pos_items)
-            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
+            # neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
+            neg_items_emb = self.embed_items(self.sampler.sample_by_co_counts(interaction, self.num_negatives))
             pos_logits = (seq_output*pos_items_emb).sum(1)
             neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
             bs = pos_items.size(0)
@@ -226,3 +229,82 @@ class SASRecF2(SequentialRecommender):
             all_scores.append(scores.cpu())
 
         return torch.cat(all_scores, dim=1)
+
+class CoCountsSampler(AbstractSampler):
+    def __init__(self, train_set, n_candidates, min_co_count=1, pop_pct=0.5,
+                 random_trigger=True):
+        self.train_set = train_set
+        self.n_candidates = n_candidates
+        self.min_co_count = min_co_count
+        self.pop_pct = pop_pct
+        self.random_trigger = random_trigger
+
+        self.uid_field = train_set.uid_field
+        self.iid_field = train_set.iid_field
+
+        self.user_num = train_set.user_num
+        self.item_num = train_set.item_num
+
+        self.pop_sampler = RepeatableSampler(['train'], train_set, distribution='popularity', alpha=0.75).set_phase('train')
+        self.uni_sampler = RepeatableSampler(['train'], train_set, distribution='uniform').set_phase('train')
+
+    def sample_by_co_counts(self, inter_feat, num):
+        if self.pop_pct:
+            co_count_num = int(num * (1 - self.pop_pct))
+            fallback_num = num - co_count_num
+            pop_num = fallback_num // 2
+            uni_num = fallback_num - pop_num
+        else:
+            co_count_num = num
+
+        history = inter_feat.item_id_list
+        indices = torch.nonzero(history)
+        rows = indices[:, 0].unique()
+
+        # get the last interacted item (might be a good idea to use them all to gather candidates)
+        second_column = indices[:, 1]
+        cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
+        cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])  # [B]
+
+        if self.random_trigger:
+            # select a random item as trigger from the last interacted items
+            v = torch.rand(cols.size())
+            cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
+
+        triggers = history[rows, cols]  # [B]
+        related = self.co_counts_table[triggers]  # [B, n_candidates]
+        # remove positive from candidates
+        target = inter_feat.item_id.repeat_interleave(self.n_candidates).reshape(related.size(0), -1)
+        related[related == target] = 0
+
+        n_rows = triggers.size(0)
+        # generates duplicates
+        # indices = torch.randint(0, self.n_candidates, (n_rows * co_count_num,))
+        related_cols = torch.argsort(torch.rand((n_rows, self.n_candidates)), dim=-1)[:, :co_count_num].t().reshape(-1)
+        related_rows = torch.arange(n_rows).repeat(co_count_num)
+
+        res = related[related_rows, related_cols]  # [B, co_count_num]
+        zeros = res == 0
+        n_zeros = int(zeros.sum())
+        res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype)
+
+        if self.pop_pct:
+            user_ids = inter_feat[self.uid_field].numpy()
+            item_ids = inter_feat[self.iid_field].numpy()
+
+            pop_res = self.pop_sampler.sample_by_user_ids(user_ids, item_ids, pop_num)
+            uni_res = self.uni_sampler.sample_by_user_ids(user_ids, item_ids, uni_num)
+            res = torch.cat([res, pop_res, uni_res], dim=1)
+
+        return res
+
+    def _build_co_counts_table(self):
+        co_counts = self.train_set.get_co_counts()
+        self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
+        for iid, co_counts in co_counts.items():
+            top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
+            for i, (co_iid, co_count) in enumerate(top_co_counts):
+                if co_count <= self.min_co_count: break
+                if i >= self.n_candidates: break
+                self.co_counts_table[iid, i] = co_iid
+
