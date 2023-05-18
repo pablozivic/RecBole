@@ -10,6 +10,7 @@ SASRecF
 
 import torch
 from torch import nn
+from torch.nn import NLLLoss
 
 from recbole.model.abstract_recommender import SequentialRecommender
 from recbole.model.layers import TransformerEncoder, FeatureSeqEmbLayer
@@ -178,6 +179,15 @@ class SASRecF2(SequentialRecommender):
             test_item_emb = self.get_item_features_table()
             logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
             loss = self.loss_fct(logits, pos_items)
+            return loss
+        elif self.loss_type == 'InfoNCE':
+            pos_items_emb = self.embed_items(pos_items)
+            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, 10))
+            pos_logits = (seq_output*pos_items_emb).sum(1)
+            neg_logits = (seq_output.repeat(10, 1) * neg_items_emb).sum(1)
+            bs = pos_items.size(0)
+            logits = torch.cat([pos_logits, neg_logits], dim=0).view(bs, -1)
+            loss = self.loss_fct(logits, torch.zeros(logits.size(), dtype=torch.long).to(self.device))
             return loss
         elif self.loss_type == 'NS2':
             pos_items_emb = self.embed_items(pos_items)
