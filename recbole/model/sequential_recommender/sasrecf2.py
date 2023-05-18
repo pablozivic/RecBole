@@ -287,14 +287,14 @@ class CoCountsSampler(AbstractSampler):
         res = related[related_rows, related_cols]  # [B, co_count_num]
         zeros = res == 0
         n_zeros = int(zeros.sum())
-        res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype)
+        res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype, device=res.device)
 
         if self.pop_pct:
             user_ids = inter_feat[self.uid_field].numpy()
             item_ids = inter_feat[self.iid_field].numpy()
 
-            pop_res = self.pop_sampler.sample_by_user_ids(user_ids, item_ids, pop_num)
-            uni_res = self.uni_sampler.sample_by_user_ids(user_ids, item_ids, uni_num)
+            pop_res = self.pop_sampler.sample_by_user_ids(user_ids, item_ids, pop_num).to('cuda')
+            uni_res = self.uni_sampler.sample_by_user_ids(user_ids, item_ids, uni_num).to('cuda')
             res = torch.cat([res, pop_res, uni_res], dim=1)
 
         return res
