@@ -247,14 +247,11 @@ class CoCountsSampler(AbstractSampler):
         self.item_num = train_set.item_num
 
         self.pop_sampler = RepeatableSampler(['train'], train_set, distribution='popularity', alpha=0.75).set_phase('train')
-        self.uni_sampler = RepeatableSampler(['train'], train_set, distribution='uniform').set_phase('train')
 
     def sample_by_co_counts(self, inter_feat, num):
         if self.pop_pct:
             co_count_num = int(num * (1 - self.pop_pct))
-            fallback_num = num - co_count_num
-            pop_num = fallback_num // 2
-            uni_num = fallback_num - pop_num
+            uni_num = num - co_count_num
         else:
             co_count_num = num
 
@@ -290,12 +287,11 @@ class CoCountsSampler(AbstractSampler):
         res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype, device=res.device)
 
         if self.pop_pct:
-            user_ids = inter_feat[self.uid_field].numpy()
-            item_ids = inter_feat[self.iid_field].numpy()
+            user_ids = inter_feat[self.uid_field]
+            item_ids = inter_feat[self.iid_field]
 
-            pop_res = self.pop_sampler.sample_by_user_ids(user_ids, item_ids, pop_num).to('cuda')
             uni_res = self.uni_sampler.sample_by_user_ids(user_ids, item_ids, uni_num).to('cuda')
-            res = torch.cat([res, pop_res, uni_res], dim=1)
+            res = torch.cat([res, uni_res], dim=1)
 
         return res
 
