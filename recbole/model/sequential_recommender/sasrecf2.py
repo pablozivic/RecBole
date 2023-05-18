@@ -180,10 +180,10 @@ class SASRecF2(SequentialRecommender):
             loss = self.loss_fct(logits, pos_items)
             return loss
         elif self.loss_type == 'NS2':
-            pos_items_emb = self.embed_items(pos_items).repeat(10)
+            pos_items_emb = self.embed_items(pos_items)
             neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, 10))
-            pos_logits = torch.matmul(seq_output, pos_items_emb.transpose(0, 1))
-            neg_logits = torch.matmul(seq_output, neg_items_emb.transpose(0, 1))
+            pos_logits = (seq_output*pos_items_emb).sum(1)
+            neg_logits = (seq_output.repeat(10) * neg_items_emb).sum(1)
             label = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=1).to(self.device)
             logits = torch.cat([pos_logits, neg_logits], dim=1)
             loss = self.loss_fct(logits, label)
