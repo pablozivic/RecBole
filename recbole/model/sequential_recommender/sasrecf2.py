@@ -183,9 +183,9 @@ class SASRecF2(SequentialRecommender):
             pos_items_emb = self.embed_items(pos_items)
             neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, 10))
             pos_logits = (seq_output*pos_items_emb).sum(1)
-            neg_logits = (seq_output.repeat(10) * neg_items_emb).sum(1)
-            label = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=1).to(self.device)
-            logits = torch.cat([pos_logits, neg_logits], dim=1)
+            neg_logits = (seq_output.repeat(10, 1) * neg_items_emb).sum(1)
+            label = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0).to(self.device)
+            logits = torch.cat([pos_logits, neg_logits], dim=0)
             loss = self.loss_fct(logits, label)
             return loss
 
