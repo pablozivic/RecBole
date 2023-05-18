@@ -430,11 +430,12 @@ class CoCountsSampler(AbstractSampler):
         related[related == target] = 0
 
         n_rows = triggers.size(0)
-        indices = torch.randint(0, self.n_candidates, (n_rows * co_count_num,))
+        # generates duplicates
+        # indices = torch.randint(0, self.n_candidates, (n_rows * co_count_num,))
+        related_cols = torch.argsort(torch.rand((n_rows, self.n_candidates)), dim=-1)[:, :co_count_num].t().reshape(-1)
+        related_rows = torch.arange(n_rows).repeat(co_count_num)
 
-        rows = torch.arange(n_rows).repeat(co_count_num)
-
-        res = related[rows, indices]
+        res = related[related_rows, related_cols]
         zeros = res == 0
         n_zeros = int(zeros.sum())
         res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype)
