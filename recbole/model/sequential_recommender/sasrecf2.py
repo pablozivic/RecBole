@@ -284,7 +284,7 @@ class CoCountsSampler(AbstractSampler):
         res = related[related_rows, related_cols]  # [B, co_count_num]
         zeros = res == 0
         n_zeros = int(zeros.sum())
-        res[zeros] = torch.tensor(self.pop_sampler.sampling(n_zeros), dtype=res.dtype, device=res.device)
+        res[zeros] = torch.tensor(self.uni_sampler.sampling(n_zeros), dtype=res.dtype, device=res.device)
 
         if self.pop_pct:
             user_ids = inter_feat[self.uid_field]
