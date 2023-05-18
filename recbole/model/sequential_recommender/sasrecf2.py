@@ -246,7 +246,7 @@ class CoCountsSampler(AbstractSampler):
         self.user_num = train_set.user_num
         self.item_num = train_set.item_num
 
-        self.pop_sampler = RepeatableSampler(['train'], train_set, distribution='popularity', alpha=0.75).set_phase('train')
+        self.uni_sampler = RepeatableSampler(['train'], train_set, distribution='uniform').set_phase('train')
 
     def sample_by_co_counts(self, inter_feat, num):
         if self.pop_pct:
