@@ -268,7 +268,7 @@ class CoCountsSampler(AbstractSampler):
 
         if self.random_trigger:
             # select a random item as trigger from the last interacted items
-            v = torch.rand(cols.size())
+            v = torch.rand(cols.size(), device=cols.device)
             cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
 
         triggers = history[rows, cols]  # [B]
@@ -307,4 +307,6 @@ class CoCountsSampler(AbstractSampler):
                 if co_count <= self.min_co_count: break
                 if i >= self.n_candidates: break
                 self.co_counts_table[iid, i] = co_iid
+
+        self.co_counts_table = self.co_counts_table.to('cuda')
 
