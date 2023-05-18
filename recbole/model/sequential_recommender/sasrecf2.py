@@ -98,6 +98,7 @@ class SASRecF2(SequentialRecommender):
             self.loss_fct = nn.BCEWithLogitsLoss()
         elif self.loss_type == 'InfoNCE':
             self.sampler = RepeatableSampler('train', dataset)
+            self.num_negatives = config['nce_num_negatives']
             self.loss_fct = nn.CrossEntropyLoss()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
@@ -185,18 +186,18 @@ class SASRecF2(SequentialRecommender):
             return loss
         elif self.loss_type == 'InfoNCE':
             pos_items_emb = self.embed_items(pos_items)
-            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, 10))
+            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
             pos_logits = (seq_output*pos_items_emb).sum(1)
-            neg_logits = (seq_output.repeat(10, 1) * neg_items_emb).sum(1)
+            neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
             bs = pos_items.size(0)
-            logits = torch.cat([pos_logits, neg_logits], dim=0).view(bs, -1)
+            logits = torch.cat([pos_logits.view(bs, -1), neg_logits.view(bs, -1)], dim=1)
             loss = self.loss_fct(logits, torch.zeros(logits.size(0), dtype=torch.long).to(self.device))
             return loss
         elif self.loss_type == 'NS2':
             pos_items_emb = self.embed_items(pos_items)
-            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, 10))
+            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
             pos_logits = (seq_output*pos_items_emb).sum(1)
-            neg_logits = (seq_output.repeat(10, 1) * neg_items_emb).sum(1)
+            neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
             label = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0).to(self.device)
             logits = torch.cat([pos_logits, neg_logits], dim=0)
             loss = self.loss_fct(logits, label)
