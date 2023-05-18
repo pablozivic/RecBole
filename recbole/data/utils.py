@@ -306,7 +306,8 @@ def _create_sampler(
     alpha: float = 1.0,
     base_sampler=None,
     co_counts_candidates=None,
-    min_co_count=None
+    min_co_count=None,
+    pct_pop=None,
 ):
     phases = ["train", "valid", "test"]
     sampler = None
@@ -325,13 +326,15 @@ def _create_sampler(
         elif distribution == 'co-counts':
             assert co_counts_candidates is not None, 'n_candidates must be specified for co-counts distribution'
             assert min_co_count is not None, 'min_co_count must be specified for co-counts distribution'
+            assert pct_pop is not None, 'pct_pop must be specified for co-counts distribution'
 
             sampler = CoCountsSampler(
                 phases,
                 dataset,
                 built_datasets,
                 co_counts_candidates,
-                min_co_count
+                min_co_count,
+                pct_pop
             )
         else:
             sampler = RepeatableSampler(
@@ -370,6 +373,7 @@ def create_samplers(config, dataset, built_datasets):
         train_neg_sample_args["alpha"],
         co_counts_candidates=train_neg_sample_args.get("co_counts_candidates"),
         min_co_count=train_neg_sample_args.get("min_co_count"),
+        pct_pop=train_neg_sample_args.get("pct_pop"),
     )
     train_sampler = base_sampler.set_phase("train") if base_sampler else None
 

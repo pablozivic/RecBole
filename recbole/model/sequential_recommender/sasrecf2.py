@@ -181,8 +181,8 @@ class SASRecF2(SequentialRecommender):
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
         test_item = interaction[self.ITEM_ID]
         seq_output = self.forward(item_seq, item_seq_len)
-        test_item_emb = self.embed_items([test_item])
-        scores = torch.mul(seq_output, test_item_emb).sum(dim=1)
+        test_item_emb = self.embed_items([test_item])  # [1, H]
+        scores = torch.mul(seq_output, test_item_emb).sum(dim=1)  # [B]
         return scores
 
     def full_sort_predict(self, interaction, item_batch_size=50000):

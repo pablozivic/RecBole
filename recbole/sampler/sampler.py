@@ -414,7 +414,11 @@ class CoCountsSampler(AbstractSampler):
         # get the last interacted item (might be a good idea to use them all to gather candidates)
         second_column = indices[:, 1]
         cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
-        cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])
+        cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])  # [B]
+
+        # select a random item as trigger from the last interacted items
+        v = torch.rand(cols.size())
+        cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
 
         triggers = history[rows, cols]  # [B]
         related = self.co_counts_table[triggers]  # [B, n_candidates]
