@@ -89,13 +89,16 @@ class SASRecF2(SequentialRecommender):
 
         if self.loss_type == "COS":
             self.loss_fct = nn.CosineEmbeddingLoss(reduction='mean')
-        elif self.loss_type == "CE" or self.loss_type == 'InfoNCE':
+        elif self.loss_type == "CE":
             self.loss_fct = nn.CrossEntropyLoss()
         elif self.loss_type == "NS":
             self.loss_fct = nn.BCEWithLogitsLoss()
         elif self.loss_type == 'NS2':
             self.sampler = RepeatableSampler('train', dataset)
             self.loss_fct = nn.BCEWithLogitsLoss()
+        elif self.loss_type == 'InfoNCE':
+            self.sampler = RepeatableSampler('train', dataset)
+            self.loss_fct = nn.CrossEntropyLoss()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
 
