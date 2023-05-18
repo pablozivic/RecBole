@@ -193,7 +193,16 @@ class NegSampleDataLoader(AbstractDataLoader):
                 {self.iid_field: neg_candidate_ids.to(self.model.device)}
             )
             interaction.update(neg_item_feat)
-            scores = self.model.predict(interaction).reshape(candidate_num, -1)
+            batch_size = self.neg_sample_args.get('batch_size')
+            if batch_size:
+                scores = []
+                for i in range(0, interaction[self.uid_field].shape[0], batch_size):
+                    scores.append(
+                        self.model.predict(interaction[i:i + batch_size]).reshape(-1)
+                    )
+                scores = torch.cat(scores).reshape(candidate_num, -1)
+            else:
+                scores = self.model.predict(interaction).reshape(candidate_num, -1)
             indices = torch.max(scores, dim=0)[1].detach()
             neg_candidate_ids = neg_candidate_ids.reshape(candidate_num, -1).to('cuda')
             neg_item_ids = neg_candidate_ids[
