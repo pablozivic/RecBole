@@ -101,6 +101,7 @@ class SASRecF2(SequentialRecommender):
             self.sampler = RepeatableSampler('train', dataset)
             self.num_negatives = config['nce_num_negatives']
             self.sampler = CoCountsSampler(dataset, n_candidates=50, min_co_count=5)
+            self.sampler._build_co_counts_table()
             self.loss_fct = nn.CrossEntropyLoss()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
