@@ -291,7 +291,7 @@ class CoCountsSampler(AbstractSampler):
             item_ids = inter_feat[self.iid_field]
 
             uni_res = self.uni_sampler.sample_by_user_ids(user_ids, item_ids, uni_num).to('cuda')
-            res = torch.cat([res, uni_res], dim=1)
+            res = torch.cat([res, uni_res], dim=0)
 
         return res
 
