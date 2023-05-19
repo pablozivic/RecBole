@@ -206,7 +206,7 @@ class SASRecF2(SequentialRecommender):
             pos_items_emb = self.embed_items(pos_items)
             neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
             # neg_items_emb = self.embed_items(self.sampler.sample_by_co_counts(interaction, self.num_negatives))
-            pos_logits = (seq_output*pos_items_emb).sum(1)
+            pos_logits = (seq_output * pos_items_emb).sum(1)
             neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
             bs = pos_items.size(0)
             logits = torch.cat([pos_logits.view(bs, -1), neg_logits.view(bs, -1)], dim=1)
@@ -229,10 +229,10 @@ class SASRecF2(SequentialRecommender):
                 pos_probs = self.item_distr[pos_items]
 
             neg_items_emb = self.embed_items(neg_item_ids)
-            neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
+            neg_logits = (seq_output[:, None, :].repeat(1, self.num_negatives, 1) * neg_items_emb).sum(1)
 
             pos_items_emb = self.embed_items(pos_items)
-            pos_logits = (seq_output*pos_items_emb).sum(1)
+            pos_logits = (seq_output * pos_items_emb).sum(1)
 
             # logQ correction
             epsilon = 1e-16
@@ -250,13 +250,12 @@ class SASRecF2(SequentialRecommender):
         elif self.loss_type == 'NS2':
             pos_items_emb = self.embed_items(pos_items)
             neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
-            pos_logits = (seq_output*pos_items_emb).sum(1)
+            pos_logits = (seq_output * pos_items_emb).sum(1)
             neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
             label = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)], dim=0).to(self.device)
             logits = torch.cat([pos_logits, neg_logits], dim=0)
             loss = self.loss_fct(logits, label)
             return loss
-
 
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
@@ -280,6 +279,7 @@ class SASRecF2(SequentialRecommender):
             all_scores.append(scores.cpu())
 
         return torch.cat(all_scores, dim=1)
+
 
 class CoCountsSampler(AbstractSampler):
     def __init__(self, train_set, n_candidates, min_co_count=1, pop_pct=0.5,
@@ -356,4 +356,3 @@ class CoCountsSampler(AbstractSampler):
                 self.co_counts_table[iid, i] = co_iid
 
         self.co_counts_table = self.co_counts_table.to('cuda')
-
