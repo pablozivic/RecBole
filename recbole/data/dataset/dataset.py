@@ -1446,7 +1446,7 @@ class Dataset(torch.utils.data.Dataset):
     @property
     def item_popularity_distr(self):
         assert not isinstance(self.inter_feat, pd.DataFrame)
-        res = Counter(np.ones(self.item_num))
+        res = Counter({i:1 for i in range(1, self.item_num+1)})
         # Count the first interacted item, since it will never apper as the target item
         res.update(Counter(self.inter_feat.item_id_list[self.inter_feat.item_id_list[:, 1] == 0, 0].numpy()))
         # Count all target items
