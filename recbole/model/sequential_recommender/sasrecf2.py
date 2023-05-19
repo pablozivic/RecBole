@@ -100,8 +100,8 @@ class SASRecF2(SequentialRecommender):
         elif self.loss_type == 'InfoNCE':
             self.sampler = RepeatableSampler('train', dataset)
             self.num_negatives = config['nce_num_negatives']
-            self.sampler = CoCountsSampler(dataset, n_candidates=50, min_co_count=5)
-            self.sampler._build_co_counts_table()
+            # self.sampler = CoCountsSampler(dataset, n_candidates=50, min_co_count=5)
+            # self.sampler._build_co_counts_table()
             self.loss_fct = nn.CrossEntropyLoss()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
@@ -189,8 +189,8 @@ class SASRecF2(SequentialRecommender):
             return loss
         elif self.loss_type == 'InfoNCE':
             pos_items_emb = self.embed_items(pos_items)
-            # neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
-            neg_items_emb = self.embed_items(self.sampler.sample_by_co_counts(interaction, self.num_negatives))
+            neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
+            # neg_items_emb = self.embed_items(self.sampler.sample_by_co_counts(interaction, self.num_negatives))
             pos_logits = (seq_output*pos_items_emb).sum(1)
             neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
             bs = pos_items.size(0)
