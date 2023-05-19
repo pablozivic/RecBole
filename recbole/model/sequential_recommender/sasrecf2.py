@@ -103,6 +103,21 @@ class SASRecF2(SequentialRecommender):
             # self.sampler = CoCountsSampler(dataset, n_candidates=50, min_co_count=5)
             # self.sampler._build_co_counts_table()
             self.loss_fct = nn.CrossEntropyLoss()
+        elif self.loss_type == 'InfoNCE-quick':
+            self.loss_fct = nn.CrossEntropyLoss()
+            self.num_negatives = config['nce_num_negatives']
+            self.temperature = config['nce_temperature']
+            self.sampling_strategy = config['nce_sampling_strategy']
+            assert self.sampling_strategy in ['uniform', 'popularity', 'log_popularity']
+            if self.sampling_strategy != 'uniform':
+                pop_table = dataset.item_popularity_distr
+                assert len(pop_table) == max(pop_table.keys())
+                _, freqs = zip(*sorted(pop_table.items()))
+                # Add 0 probability for the padding item
+                freqs = torch.cat([torch.tensor([0.0]), torch.tensor(freqs)]).to(self.device)
+                if self.sampling_strategy == 'log_popularity':
+                    freqs = torch.log(freqs + 1)
+                self.item_distr = freqs / freqs.sum()
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
 
@@ -197,6 +212,41 @@ class SASRecF2(SequentialRecommender):
             logits = torch.cat([pos_logits.view(bs, -1), neg_logits.view(bs, -1)], dim=1)
             loss = self.loss_fct(logits, torch.zeros(logits.size(0), dtype=torch.long).to(self.device))
             return loss
+        elif self.loss_type == 'InfoNCE-quick':
+            bs = pos_items.size(0)
+
+            if self.sampling_strategy == 'uniform':
+                neg_item_ids = torch.randint(1, self.item_num + 1, (bs, self.num_negatives)).to(self.device)
+
+                neg_probs = torch.ones_like(neg_item_ids, dtype=torch.float32) / self.item_num
+                pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
+            else:
+                neg_item_ids = (
+                    torch.multinomial(self.item_distr, self.num_negatives * bs, replacement=True)
+                    .view(bs, -1).to(self.device)
+                )
+                neg_probs = self.item_distr[neg_item_ids]
+                pos_probs = self.item_distr[pos_items]
+
+            neg_items_emb = self.embed_items(neg_item_ids)
+            neg_logits = (seq_output.repeat(self.num_negatives, 1) * neg_items_emb).sum(1)
+
+            pos_items_emb = self.embed_items(pos_items)
+            pos_logits = (seq_output*pos_items_emb).sum(1)
+
+            # logQ correction
+            epsilon = 1e-16
+            neg_logits -= torch.log(neg_probs + epsilon)
+            pos_logits -= torch.log(pos_probs + epsilon)
+
+            # adjust the cases when the target was sampled
+            value = torch.finfo(torch.float16).min / 100
+            neg_logits[pos_items.reshape(-1, 1).repeat(1, self.num_negatives) == neg_item_ids] = value
+
+            logits = torch.cat([pos_logits.view(bs, -1), neg_logits.view(bs, -1)], dim=1) / self.temperature
+            loss = self.loss_fct(logits, torch.zeros(logits.size(0), dtype=torch.long).to(self.device))
+            return loss
+
         elif self.loss_type == 'NS2':
             pos_items_emb = self.embed_items(pos_items)
             neg_items_emb = self.embed_items(self.sampler.sample_by_user_ids(pos_items, pos_items, self.num_negatives))
