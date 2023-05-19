@@ -228,11 +228,14 @@ class SASRecF2(SequentialRecommender):
                 neg_probs = self.item_distr[neg_item_ids]
                 pos_probs = self.item_distr[pos_items]
 
-            neg_items_emb = self.embed_items(neg_item_ids)
-            neg_logits = (seq_output[:, None, :].repeat(1, self.num_negatives, 1) * neg_items_emb).sum(2)
+            # neg_item_ids has shape [B, num_negatives]
+            neg_items_emb = self.embed_items(neg_item_ids)  # [B, num_negatives, H]
+            neg_logits = (
+                (seq_output[:, None, :].repeat(1, self.num_negatives, 1) * neg_items_emb).sum(2)  # [B, num_negatives]
+            )
 
-            pos_items_emb = self.embed_items(pos_items)
-            pos_logits = (seq_output * pos_items_emb).sum(1)
+            pos_items_emb = self.embed_items(pos_items)  # [B, H]
+            pos_logits = (seq_output * pos_items_emb).sum(1)  # [B]
 
             # logQ correction
             epsilon = 1e-16
