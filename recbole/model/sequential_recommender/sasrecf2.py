@@ -216,7 +216,7 @@ class SASRecF2(SequentialRecommender):
             bs = pos_items.size(0)
 
             if self.sampling_strategy == 'uniform':
-                neg_item_ids = torch.randint(1, self.item_num + 1, (bs, self.num_negatives)).to(self.device)
+                neg_item_ids = torch.randint(1, self.item_num, (bs, self.num_negatives)).to(self.device)
 
                 neg_probs = torch.ones_like(neg_item_ids, dtype=torch.float32) / self.item_num
                 pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
@@ -243,6 +243,7 @@ class SASRecF2(SequentialRecommender):
             pos_logits -= torch.log(pos_probs + epsilon)
 
             # adjust the cases when the target was sampled
+            # value taken from https://github.com/NVIDIA-Merlin/Transformers4Rec/blob/2c9ab4093a8367e02943f39174de2cd5720cb91e/transformers4rec/torch/model/prediction_task.py#L535
             value = torch.finfo(torch.float16).min / 100
             neg_logits[pos_items.reshape(-1, 1).repeat(1, self.num_negatives) == neg_item_ids] = value
 
