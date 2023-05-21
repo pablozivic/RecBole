@@ -245,7 +245,7 @@ class SASRecF2(SequentialRecommender):
 
                     item_distr = self.item_distr[:]
                     item_distr[related] = item_distr[related] * 0.9 / item_distr[related].sum()
-                    not_related = torch.ones(item_distr, dtype=torch.bool, device=self.device)
+                    not_related = torch.ones(item_distr.shape, dtype=torch.bool, device=self.device)
                     not_related[related] = False
                     item_distr[not_related] = item_distr[not_related] * 0.1 / item_distr[not_related].sum()
 
@@ -299,7 +299,7 @@ class SASRecF2(SequentialRecommender):
         self.n_candidates = 100
         self.min_co_count = 3
         self.random_trigger = True
-        
+
         self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
         for iid, co_counts in co_counts.items():
             top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
