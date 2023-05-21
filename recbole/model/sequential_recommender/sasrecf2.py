@@ -295,11 +295,15 @@ class SASRecF2(SequentialRecommender):
 
     def _build_co_counts_table(self, train_set):
         co_counts = train_set.get_co_counts()
-        self.co_counts_table = torch.zeros((self.item_num, 100), dtype=torch.int32)
+        # TODO: parametrize
+        self.n_candidates = 100
+        self.min_co_count = 3
+
+        self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
         for iid, co_counts in co_counts.items():
             top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
             for i, (co_iid, co_count) in enumerate(top_co_counts):
-                if co_count <= 3: break #self.min_co_count: break
+                if co_count <= self.min_co_count: break
                 if i >= self.n_candidates: break
                 self.co_counts_table[iid, i] = co_iid
 
