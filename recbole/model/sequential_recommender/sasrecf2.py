@@ -106,7 +106,7 @@ class SASRecF2(SequentialRecommender):
             # self.sampler._build_co_counts_table()
             self.loss_fct = nn.CrossEntropyLoss()
         elif self.loss_type == 'InfoNCE-quick':
-            self.loss_fct = nn.CrossEntropyLoss()
+            self.loss_fct = nn.CrossEntropyLoss(label_smoothing=config.get('nce_label_smoothing', 0.0))
             self.num_negatives = config['nce_num_negatives']
             self.temperature = config['nce_temperature']
             self.sampling_strategy = config['nce_sampling_strategy']
