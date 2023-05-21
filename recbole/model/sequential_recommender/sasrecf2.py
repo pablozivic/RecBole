@@ -298,7 +298,8 @@ class SASRecF2(SequentialRecommender):
         # TODO: parametrize
         self.n_candidates = 100
         self.min_co_count = 3
-
+        self.random_trigger = True
+        
         self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
         for iid, co_counts in co_counts.items():
             top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
