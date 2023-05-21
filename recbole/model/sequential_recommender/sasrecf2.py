@@ -299,7 +299,7 @@ class SASRecF2(SequentialRecommender):
         for iid, co_counts in co_counts.items():
             top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
             for i, (co_iid, co_count) in enumerate(top_co_counts):
-                if co_count <= self.min_co_count: break
+                if co_count <= 3: break #self.min_co_count: break
                 if i >= self.n_candidates: break
                 self.co_counts_table[iid, i] = co_iid
 
