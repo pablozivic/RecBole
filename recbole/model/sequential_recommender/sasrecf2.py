@@ -88,6 +88,8 @@ class SASRecF2(SequentialRecommender):
         self.LayerNorm = nn.LayerNorm(self.hidden_size, eps=self.layer_norm_eps)
         self.dropout = nn.Dropout(self.hidden_dropout_prob)
 
+        self.item_num = dataset.item_num
+
         if self.loss_type == "COS":
             self.loss_fct = nn.CosineEmbeddingLoss(reduction='mean')
         elif self.loss_type == "CE":
@@ -130,7 +132,6 @@ class SASRecF2(SequentialRecommender):
 
         self._item_features = None
         self._item_features_version = None
-        self.item_num = dataset.item_num
 
     def get_item_features_table(self):
         return self.embed_items(torch.arange(self.item_num).to(self.device))
@@ -294,7 +295,7 @@ class SASRecF2(SequentialRecommender):
 
     def _build_co_counts_table(self, train_set):
         co_counts = train_set.get_co_counts()
-        self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
+        self.co_counts_table = torch.zeros((self.item_num, 100), dtype=torch.int32)
         for iid, co_counts in co_counts.items():
             top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
             for i, (co_iid, co_count) in enumerate(top_co_counts):
