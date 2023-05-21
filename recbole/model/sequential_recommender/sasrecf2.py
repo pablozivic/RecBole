@@ -108,7 +108,7 @@ class SASRecF2(SequentialRecommender):
             self.num_negatives = config['nce_num_negatives']
             self.temperature = config['nce_temperature']
             self.sampling_strategy = config['nce_sampling_strategy']
-            assert self.sampling_strategy in ['uniform', 'popularity', 'log_popularity']
+            assert self.sampling_strategy in ['uniform', 'popularity', 'log_popularity', 'co-counts']
             if self.sampling_strategy != 'uniform':
                 pop_table = dataset.item_popularity_distr
                 assert len(pop_table) == max(pop_table.keys())
