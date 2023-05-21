@@ -118,6 +118,9 @@ class SASRecF2(SequentialRecommender):
                 if self.sampling_strategy == 'log_popularity':
                     freqs = torch.log(freqs + 1)
                 self.item_distr = freqs / freqs.sum()
+
+            if self.sampling_strategy == 'co-counts':
+                self._build_co_counts_table(dataset)
         else:
             raise NotImplementedError("Make sure 'loss_type' in ['COS', 'CE']!")
 
@@ -221,12 +224,40 @@ class SASRecF2(SequentialRecommender):
                 neg_probs = torch.ones_like(neg_item_ids, dtype=torch.float32) / self.item_num
                 pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
             else:
+                if self.sampling_strategy == 'co-counts':
+                    history = interaction.item_id_list
+                    indices = torch.nonzero(history)
+                    rows = indices[:, 0].unique()
+
+                    # get the last interacted item (might be a good idea to use them all to gather candidates)
+                    second_column = indices[:, 1]
+                    cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
+                    cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])  # [B]
+
+                    if self.random_trigger:
+                        # select a random item as trigger from the last interacted items
+                        v = torch.rand(cols.size(), device=cols.device)
+                        cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
+
+                    triggers = history[rows, cols]  # [B]
+                    related = self.co_counts_table[triggers.to(self.device)]  # [B, n_candidates]
+
+                    item_distr = self.item_distr[:]
+                    item_distr[related] = item_distr[related] * 0.9 / item_distr[related].sum()
+                    not_related = torch.ones(item_distr, dtype=torch.bool, device=self.device)
+                    not_related[related] = False
+                    item_distr[not_related] = item_distr[not_related] * 0.1 / item_distr[not_related].sum()
+
+                else:
+                    item_distr = self.item_distr
+
                 neg_item_ids = (
-                    torch.multinomial(self.item_distr, self.num_negatives * bs, replacement=True)
+                    torch.multinomial(item_distr, self.num_negatives * bs, replacement=True)
                     .view(bs, -1).to(self.device)
                 )
                 neg_probs = self.item_distr[neg_item_ids]
                 pos_probs = self.item_distr[pos_items]
+
 
             # neg_item_ids has shape [B, num_negatives]
             neg_items_emb = self.embed_items(neg_item_ids)  # [B, num_negatives, H]
@@ -261,6 +292,17 @@ class SASRecF2(SequentialRecommender):
             loss = self.loss_fct(logits, label)
             return loss
 
+    def _build_co_counts_table(self, train_set):
+        co_counts = train_set.get_co_counts()
+        self.co_counts_table = torch.zeros((self.item_num, self.n_candidates), dtype=torch.int32)
+        for iid, co_counts in co_counts.items():
+            top_co_counts = sorted(co_counts.items(), key=lambda x: -x[1])
+            for i, (co_iid, co_count) in enumerate(top_co_counts):
+                if co_count <= self.min_co_count: break
+                if i >= self.n_candidates: break
+                self.co_counts_table[iid, i] = co_iid
+
+        self.co_counts_table = self.co_counts_table.to(self.device)
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
