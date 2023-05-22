@@ -111,7 +111,9 @@ class SASRecF2(SequentialRecommender):
             self.temperature = config['nce_temperature']
             self.global_negatives = config['nce_global_negatives']
             self.sampling_strategy = config['nce_sampling_strategy']
-            assert self.sampling_strategy in ['uniform', 'popularity', 'log_popularity', 'co-counts']
+            assert self.sampling_strategy in ['uniform', 'popularity', 'log_popularity', 'co-counts', 'similarity']
+            if self.sampling_strategy == 'similarity': assert not self.global_negatives
+
             if self.sampling_strategy != 'uniform':
                 pop_table = dataset.item_popularity_distr
                 assert len(pop_table) == max(pop_table.keys())
@@ -219,6 +221,7 @@ class SASRecF2(SequentialRecommender):
             return loss
         elif self.loss_type == 'InfoNCE-quick':
             bs = pos_items.size(0)
+            pos_items_emb = self.embed_items(pos_items)  # [B, H]
 
             if self.sampling_strategy == 'uniform':
                 if self.global_negatives:
@@ -228,32 +231,15 @@ class SASRecF2(SequentialRecommender):
 
                 neg_probs = torch.ones_like(neg_item_ids, dtype=torch.float32) / self.item_num
                 pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
+            elif self.sampling_strategy == 'similarity':
+                sims = seq_output @ pos_items_emb.t()  # [B, B]
+                indices = sims.argsort(dim=1, descending=True)[:, :self.num_negatives]
+                rows = torch.arange(bs).repeat_interleave(self.num_negatives).to(self.device)
+                neg_item_ids = pos_items[indices]  # [B, num_negatives]
+                neg_probs = sims[rows, indices.reshape(-1)].reshape(bs, -1)  # [B, num_negatives]
+                pos_probs = torch.ones_like(pos_items, dtype=torch.float32)
             else:
-                if self.sampling_strategy == 'co-counts':
-                    history = interaction.item_id_list
-                    indices = torch.nonzero(history)
-                    rows = indices[:, 0].unique()
-
-                    # get the last interacted item (might be a good idea to use them all to gather candidates)
-                    second_column = indices[:, 1]
-                    cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
-                    cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])  # [B]
-
-                    if self.random_trigger:
-                        # select a random item as trigger from the last interacted items
-                        v = torch.rand(cols.size(), device=cols.device)
-                        cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
-
-                    triggers = history[rows, cols]  # [B]
-                    related = self.co_counts_table[triggers.to(self.device)]  # [B, n_candidates]
-
-                    item_distr = self.item_distr[:]
-                    item_distr[related] = item_distr[related] * 0.5 / item_distr[related].sum()
-                    not_related = torch.ones(item_distr.shape, dtype=torch.bool, device=self.device)
-                    not_related[related] = False
-                    item_distr[not_related] = item_distr[not_related] * 0.5 / item_distr[not_related].sum()
-                else:
-                    item_distr = self.item_distr
+                item_distr = self._get_item_distr(interaction)
 
                 if self.global_negatives:
                     neg_item_ids = (
@@ -271,7 +257,7 @@ class SASRecF2(SequentialRecommender):
             # neg_item_ids has shape [num_negatives] if global_negatives else [B, num_negatives]
             neg_items_emb = self.embed_items(neg_item_ids)  # [num_negatives, H] or [B, num_negatives, H]
             if self.global_negatives:
-                # [num_negatives, H]
+                # neg_items_emb is [num_negatives, H]
                 # seq_output is [B, H]
                 neg_logits = seq_output @ neg_items_emb.t()  # [B, num_negatives]
             else:
@@ -279,7 +265,6 @@ class SASRecF2(SequentialRecommender):
                     (seq_output[:, None, :].repeat(1, self.num_negatives, 1) * neg_items_emb).sum(2)  # [B, num_negatives]
                 )
 
-            pos_items_emb = self.embed_items(pos_items)  # [B, H]
             pos_logits = (seq_output * pos_items_emb).sum(1)  # [B]
 
             # logQ correction
@@ -305,6 +290,34 @@ class SASRecF2(SequentialRecommender):
             logits = torch.cat([pos_logits, neg_logits], dim=0)
             loss = self.loss_fct(logits, label)
             return loss
+
+    def _get_item_distr(self, interaction):
+        if self.sampling_strategy == 'co-counts':
+            history = interaction.item_id_list
+            indices = torch.nonzero(history)
+            rows = indices[:, 0].unique()
+
+            # get the last interacted item (might be a good idea to use them all to gather candidates)
+            second_column = indices[:, 1]
+            cum_cols = torch.nonzero((second_column[1:] - second_column[:-1]) <= 0).squeeze()
+            cols = torch.cat([cum_cols[:1], (cum_cols[1:] - cum_cols[:-1]) - 1, second_column[-1:]])  # [B]
+
+            if self.random_trigger:
+                # select a random item as trigger from the last interacted items
+                v = torch.rand(cols.size(), device=cols.device)
+                cols = torch.minimum(cols, (v * (cols + 1)).type(cols.dtype))
+
+            triggers = history[rows, cols]  # [B]
+            related = self.co_counts_table[triggers.to(self.device)]  # [B, n_candidates]
+
+            item_distr = self.item_distr[:]
+            item_distr[related] = item_distr[related] * 0.5 / item_distr[related].sum()
+            not_related = torch.ones(item_distr.shape, dtype=torch.bool, device=self.device)
+            not_related[related] = False
+            item_distr[not_related] = item_distr[not_related] * 0.5 / item_distr[not_related].sum()
+        else:
+            item_distr = self.item_distr
+        return item_distr
 
     def _build_co_counts_table(self, train_set):
         co_counts = train_set.get_co_counts()
