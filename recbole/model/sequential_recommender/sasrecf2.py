@@ -222,7 +222,7 @@ class SASRecF2(SequentialRecommender):
 
             if self.sampling_strategy == 'uniform':
                 if self.global_negatives:
-                    neg_item_ids = torch.randint(1, self.item_num, self.num_negatives).to(self.device)
+                    neg_item_ids = torch.randint(1, self.item_num, (self.num_negatives,)).to(self.device)
                 else:
                     neg_item_ids = torch.randint(1, self.item_num, (bs, self.num_negatives)).to(self.device)
 
@@ -257,8 +257,7 @@ class SASRecF2(SequentialRecommender):
 
                 if self.global_negatives:
                     neg_item_ids = (
-                        torch.multinomial(item_distr, self.num_negatives, replacement=True)
-                        .view(bs, -1).to(self.device)
+                        torch.multinomial(item_distr, self.num_negatives, replacement=True).to(self.device)
                     )
                 else:
                     neg_item_ids = (
