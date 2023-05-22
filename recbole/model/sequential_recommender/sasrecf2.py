@@ -233,6 +233,7 @@ class SASRecF2(SequentialRecommender):
                 pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
             elif self.sampling_strategy == 'similarity':
                 sims = seq_output @ pos_items_emb.t()  # [B, B]
+                sims.fill_diagonal_(-1000)
                 indices = sims.argsort(dim=1, descending=True)[:, :self.num_negatives]
                 rows = torch.arange(bs).repeat_interleave(self.num_negatives).to(self.device)
                 neg_item_ids = pos_items[indices]  # [B, num_negatives]
