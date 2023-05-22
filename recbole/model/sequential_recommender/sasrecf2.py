@@ -109,6 +109,7 @@ class SASRecF2(SequentialRecommender):
             self.loss_fct = nn.CrossEntropyLoss(label_smoothing=config['nce_label_smoothing'])
             self.num_negatives = config['nce_num_negatives']
             self.temperature = config['nce_temperature']
+            self.global_negatives = config['nce_global_negatives']
             self.sampling_strategy = config['nce_sampling_strategy']
             assert self.sampling_strategy in ['uniform', 'popularity', 'log_popularity', 'co-counts']
             if self.sampling_strategy != 'uniform':
@@ -191,7 +192,7 @@ class SASRecF2(SequentialRecommender):
     def calculate_loss(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
-        seq_output = self.forward(item_seq, item_seq_len)
+        seq_output = self.forward(item_seq, item_seq_len)  # [B H]
         pos_items = interaction[self.POS_ITEM_ID]
         if self.loss_type == "COS":
             pos_items_emb = self.embed_items(pos_items)
@@ -220,7 +221,10 @@ class SASRecF2(SequentialRecommender):
             bs = pos_items.size(0)
 
             if self.sampling_strategy == 'uniform':
-                neg_item_ids = torch.randint(1, self.item_num, (bs, self.num_negatives)).to(self.device)
+                if self.global_negatives:
+                    neg_item_ids = torch.randint(1, self.item_num, self.num_negatives).to(self.device)
+                else:
+                    neg_item_ids = torch.randint(1, self.item_num, (bs, self.num_negatives)).to(self.device)
 
                 neg_probs = torch.ones_like(neg_item_ids, dtype=torch.float32) / self.item_num
                 pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
@@ -248,23 +252,33 @@ class SASRecF2(SequentialRecommender):
                     not_related = torch.ones(item_distr.shape, dtype=torch.bool, device=self.device)
                     not_related[related] = False
                     item_distr[not_related] = item_distr[not_related] * 0.5 / item_distr[not_related].sum()
-
                 else:
                     item_distr = self.item_distr
 
-                neg_item_ids = (
-                    torch.multinomial(item_distr, self.num_negatives * bs, replacement=True)
-                    .view(bs, -1).to(self.device)
-                )
+                if self.global_negatives:
+                    neg_item_ids = (
+                        torch.multinomial(item_distr, self.num_negatives, replacement=True)
+                        .view(bs, -1).to(self.device)
+                    )
+                else:
+                    neg_item_ids = (
+                        torch.multinomial(item_distr, self.num_negatives * bs, replacement=True)
+                        .view(bs, -1).to(self.device)
+                    )
                 neg_probs = self.item_distr[neg_item_ids]
                 pos_probs = self.item_distr[pos_items]
 
 
-            # neg_item_ids has shape [B, num_negatives]
-            neg_items_emb = self.embed_items(neg_item_ids)  # [B, num_negatives, H]
-            neg_logits = (
-                (seq_output[:, None, :].repeat(1, self.num_negatives, 1) * neg_items_emb).sum(2)  # [B, num_negatives]
-            )
+            # neg_item_ids has shape [num_negatives] if global_negatives else [B, num_negatives]
+            neg_items_emb = self.embed_items(neg_item_ids)  # [num_negatives, H] or [B, num_negatives, H]
+            if self.global_negatives:
+                # [num_negatives, H]
+                # seq_output is [B, H]
+                neg_logits = seq_output @ neg_items_emb.t()  # [B, num_negatives]
+            else:
+                neg_logits = (
+                    (seq_output[:, None, :].repeat(1, self.num_negatives, 1) * neg_items_emb).sum(2)  # [B, num_negatives]
+                )
 
             pos_items_emb = self.embed_items(pos_items)  # [B, H]
             pos_logits = (seq_output * pos_items_emb).sum(1)  # [B]
