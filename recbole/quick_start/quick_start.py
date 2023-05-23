@@ -107,7 +107,7 @@ def run_recbole(
     )
 
     logger.info(set_color("best valid ", "yellow") + f": {best_valid_result}")
-    logger.info(set_color("test result", "yellow") + f": {test_result}")
+    # logger.info(set_color("test result", "yellow") + f": {test_result}")
 
     return {
         "best_valid_score": best_valid_score,
