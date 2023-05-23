@@ -442,7 +442,7 @@ class Trainer(AbstractTrainer):
             callback_fn=None,
     ):
         try:
-            return self.fit(train_data, valid_data, verbose, saved, show_progress, callback_fn)
+            return self._fit(train_data, valid_data, verbose, saved, show_progress, callback_fn)
         except Exception as e:
             self.metrics_logger.finish_training('FAILED')
             raise e
