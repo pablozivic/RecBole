@@ -1448,7 +1448,8 @@ class Dataset(torch.utils.data.Dataset):
         assert not isinstance(self.inter_feat, pd.DataFrame)
         res = Counter({i: 1 for i in range(1, self.item_num)})
         # Count the first interacted item, since it will never apper as the target item
-        res.update(Counter(self.inter_feat.item_id_list[self.inter_feat.item_id_list[:, 1] == 0, 0].numpy()))
+        item_id_list_field = f'{self.iid_field}_list'
+        res.update(Counter(self.inter_feat[item_id_list_field][self.inter_feat[item_id_list_field][:, 1] == 0, 0].numpy()))
         # Count all target items
         res.update(Counter(self.inter_feat.item_id.numpy()))
         return res
