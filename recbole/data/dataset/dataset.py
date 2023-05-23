@@ -1451,7 +1451,7 @@ class Dataset(torch.utils.data.Dataset):
         item_id_list_field = f'{self.iid_field}_list'
         res.update(Counter(self.inter_feat[item_id_list_field][self.inter_feat[item_id_list_field][:, 1] == 0, 0].numpy()))
         # Count all target items
-        res.update(Counter(self.inter_feat.item_id.numpy()))
+        res.update(Counter(self.inter_feat[self.iid_field].numpy()))
         return res
 
     @property
