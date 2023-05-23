@@ -42,6 +42,9 @@ class MLFlowLogger(object):
             for k, v in self.config.final_config_dict.items():
                 self.mlflow_client.log_param(self.run_id, k, v)
 
+    def finish_training(self, status):
+        self.mlflow_client.set_terminated(self.run_id, status)
+
     def log_metrics(self, metrics, epoch, head="train", commit=True):
         if self.enabled:
             if head:

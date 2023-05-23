@@ -433,6 +433,20 @@ class Trainer(AbstractTrainer):
         )
 
     def fit(
+            self,
+            train_data,
+            valid_data=None,
+            verbose=True,
+            saved=True,
+            show_progress=False,
+            callback_fn=None,
+    ):
+        try:
+            self.fit(train_data, valid_data, verbose, saved, show_progress, callback_fn)
+        except:
+            self.metrics_logger.finish_training('FAILED')
+
+    def _fit(
         self,
         train_data,
         valid_data=None,
@@ -552,6 +566,7 @@ class Trainer(AbstractTrainer):
                 valid_step += 1
 
         self._add_hparam_to_tensorboard(self.best_valid_score)
+        self.metrics_logger.finish_training(status='FINISHED')
         return self.best_valid_score, self.best_valid_result
 
     def _full_sort_batch_eval(self, batched_data):

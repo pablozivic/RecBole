@@ -94,11 +94,11 @@ def run_recbole(
     )
 
     # model evaluation
-    test_result = trainer.evaluate(
-        test_data, load_best_model=saved, show_progress=config["show_progress"],
-        # TODO: remove this!
-        neg_sample_func=train_data._neg_sampling
-    )
+    # test_result = trainer.evaluate(
+    #     test_data, load_best_model=saved, show_progress=config["show_progress"],
+    #     TODO: remove this!
+        # neg_sample_func=train_data._neg_sampling
+    # )
 
     environment_tb = get_environment(config)
     logger.info(
@@ -113,7 +113,7 @@ def run_recbole(
         "best_valid_score": best_valid_score,
         "valid_score_bigger": config["valid_metric_bigger"],
         "best_valid_result": best_valid_result,
-        "test_result": test_result,
+        # "test_result": test_result,
     }
 
 
