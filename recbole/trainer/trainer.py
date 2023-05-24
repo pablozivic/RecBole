@@ -118,6 +118,7 @@ class Trainer(AbstractTrainer):
         self.logger = getLogger()
         self.tensorboard = get_tensorboard(self.logger)
         self.metrics_logger = MLFlowLogger(config)
+        self.metrics_logger.log_model_params(model)
         self.learner = config["learner"]
         self.learning_rate = config["learning_rate"]
         self.epochs = config["epochs"]
