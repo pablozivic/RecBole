@@ -312,7 +312,8 @@ class Trainer(AbstractTrainer):
             dict: valid result
         """
         valid_result = self.evaluate(
-            valid_data, load_best_model=False, show_progress=show_progress, neg_sample_func=neg_sample_func
+            valid_data, load_best_model=False, show_progress=show_progress, neg_sample_func=neg_sample_func,
+            dataset_name='valid'
         )
         valid_score = calculate_valid_score(valid_result, self.valid_metric)
         return valid_score, valid_result
@@ -612,7 +613,8 @@ class Trainer(AbstractTrainer):
 
     @torch.no_grad()
     def evaluate(
-        self, eval_data, load_best_model=True, model_file=None, show_progress=False, neg_sample_func=None
+        self, eval_data, load_best_model=True, model_file=None, show_progress=False, neg_sample_func=None,
+        dataset_name=None,
     ):
         r"""Evaluate the model based on the eval data.
 
@@ -703,7 +705,7 @@ class Trainer(AbstractTrainer):
         result['eval_loss'] = total_loss / n_batch if n_batch else 0
         if not self.config["single_spec"]:
             result = self._map_reduce(result, num_sample)
-        self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head="eval")
+        self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head=(dataset_name or "eval"))
         return result
 
     def _map_reduce(self, result, num_sample):
