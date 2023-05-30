@@ -18,6 +18,7 @@ recbole.trainer.trainer
 """
 
 import os
+from itertools import islice
 
 from logging import getLogger
 from time import time
@@ -228,6 +229,16 @@ class Trainer(AbstractTrainer):
             optimizer = optim.Adam(params, lr=learning_rate)
         return optimizer
 
+    def sanity_check(self, valid_data):
+        """
+        train a few batches and then perform an evaluation to see wether everything works well
+        """
+        self.evaluate(
+            valid_data, 'valid', load_best_model=False, show_progress=self.config["show_progress"],
+            # TODO: remove this!
+            neg_sample_func=valid_data._neg_sampling, sanity_check=True
+        )
+
     def _train_epoch(self, train_data, epoch_idx, loss_func=None, show_progress=False):
         r"""Train the model in an epoch
 
@@ -313,8 +324,8 @@ class Trainer(AbstractTrainer):
             dict: valid result
         """
         valid_result = self.evaluate(
-            valid_data, load_best_model=False, show_progress=show_progress, neg_sample_func=neg_sample_func,
-            dataset_name='valid'
+            valid_data, phase='valid', load_best_model=False,
+            show_progress=show_progress, neg_sample_func=neg_sample_func,
         )
         valid_score = calculate_valid_score(valid_result, self.valid_metric)
         return valid_score, valid_result
@@ -572,6 +583,16 @@ class Trainer(AbstractTrainer):
         self.metrics_logger.finish_training(status='FINISHED')
         return self.best_valid_score, self.best_valid_result
 
+    def _sampled_sort_batch_eval(self, batched_data):
+        interaction, history_index, positive_u, positive_i = batched_data
+        try:
+            # Note: interaction without item ids
+            scores = self.model.sampled_predict(interaction.to(self.device))
+        except NotImplementedError:
+            raise RuntimeError('Need to implement sampled_predict()')
+
+        return interaction, scores, positive_u, np.zeros(len(positive_u), dtype=np.int64)
+
     def _full_sort_batch_eval(self, batched_data):
         interaction, history_index, positive_u, positive_i = batched_data
         try:
@@ -614,8 +635,8 @@ class Trainer(AbstractTrainer):
 
     @torch.no_grad()
     def evaluate(
-        self, eval_data, load_best_model=True, model_file=None, show_progress=False, neg_sample_func=None,
-        dataset_name=None,
+        self, eval_data, phase, load_best_model=True, model_file=None, show_progress=False, neg_sample_func=None,
+        sanity_check=False
     ):
         r"""Evaluate the model based on the eval data.
 
@@ -646,9 +667,13 @@ class Trainer(AbstractTrainer):
             self.logger.info(message_output)
 
         if isinstance(eval_data, FullSortEvalDataLoader):
-            eval_func = self._full_sort_batch_eval
-            if self.item_tensor is None:
-                self.item_tensor = eval_data._dataset.get_item_feature().to(self.device)
+            if self.config['eval_args']['mode']['phase'] == 'full':
+                eval_func = self._full_sort_batch_eval
+                # TODO: should only do that when full_sort_predict is not implemented, otherwise is a waste of memory
+                if self.item_tensor is None:
+                    self.item_tensor = eval_data._dataset.get_item_feature().to(self.device)
+            else:
+                eval_func = self._sampled_sort_batch_eval
         else:
             eval_func = self._neg_sample_batch_eval
         if self.config["eval_type"] == EvaluatorType.RANKING:
@@ -665,6 +690,8 @@ class Trainer(AbstractTrainer):
             else eval_data
         )
 
+        if sanity_check:
+            iter_data = islice(iter_data, 3)
         num_sample = 0
         total_loss = None
         n_batch = 0
@@ -706,7 +733,9 @@ class Trainer(AbstractTrainer):
         result['eval_loss'] = total_loss / n_batch if n_batch else 0
         if not self.config["single_spec"]:
             result = self._map_reduce(result, num_sample)
-        self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head=(dataset_name or "eval"))
+
+        if not sanity_check:
+            self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head=phase)
         return result
 
     def _map_reduce(self, result, num_sample):

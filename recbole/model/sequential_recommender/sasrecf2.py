@@ -336,6 +336,7 @@ class SASRecF2(SequentialRecommender):
                 self.co_counts_table[iid, i] = co_iid
 
         self.co_counts_table = self.co_counts_table.to(self.device)
+
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
         item_seq_len = interaction[self.ITEM_SEQ_LEN]
@@ -343,6 +344,17 @@ class SASRecF2(SequentialRecommender):
         seq_output = self.forward(item_seq, item_seq_len)
         test_item_emb = self.embed_items([test_item])  # [1, H]
         scores = torch.mul(seq_output, test_item_emb).sum(dim=1)  # [B]
+        return scores
+
+    def sampled_predict(self, interaction, n_negatives):
+        item_seq = interaction[self.ITEM_SEQ]
+        item_seq_len = interaction[self.ITEM_SEQ_LEN]
+        seq_output = self.forward(item_seq, item_seq_len)
+
+        item_ids = torch.randint(1, self.item_num, (item_seq.size(0), 1 + n_negatives))
+        item_ids[:, 0] = interaction[self.ITEM_ID]
+        test_items_emb = self.embed_items(item_ids.to(self.device))
+        scores = torch.matmul(seq_output, test_items_emb.transpose(0, 1))
         return scores
 
     def full_sort_predict(self, interaction, item_batch_size=50000):

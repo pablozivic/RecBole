@@ -64,6 +64,20 @@ class AbstractRecommender(nn.Module):
         """
         raise NotImplementedError
 
+    def sampled_predict(self, interaction, n_negatives):
+        r"""full sort prediction function.
+        Given users, calculate the scores between users and n_negatives sampled items.
+
+        Args:
+            interaction (Interaction): Interaction class of the batch.
+            n_negatives (int): the number of sampled items for each user
+
+        Returns:
+            torch.Tensor: Predicted scores for given users and all candidate items,
+            shape: [n_batch_users * n_negatives]
+        """
+        raise NotImplementedError
+
     def other_parameter(self):
         if hasattr(self, "other_parameter_name"):
             return {key: getattr(self, key) for key in self.other_parameter_name}

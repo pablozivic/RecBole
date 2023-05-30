@@ -85,6 +85,8 @@ def run_recbole(
     # trainer loading and initialization
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
 
+    trainer.sanity_check(valid_data)
+
     if checkpoint_fname:
         trainer.resume_checkpoint(checkpoint_fname)
 
