@@ -18,6 +18,7 @@ recbole.trainer.trainer
 """
 
 import os
+from functools import partial
 from itertools import islice
 
 from logging import getLogger
@@ -583,11 +584,11 @@ class Trainer(AbstractTrainer):
         self.metrics_logger.finish_training(status='FINISHED')
         return self.best_valid_score, self.best_valid_result
 
-    def _sampled_sort_batch_eval(self, batched_data):
+    def _sampled_sort_batch_eval(self, batched_data, n_negatives):
         interaction, history_index, positive_u, positive_i = batched_data
         try:
             # Note: interaction without item ids
-            scores = self.model.sampled_predict(interaction.to(self.device))
+            scores = self.model.sampled_predict(interaction.to(self.device), n_negatives)
         except NotImplementedError:
             raise RuntimeError('Need to implement sampled_predict()')
 
@@ -673,8 +674,9 @@ class Trainer(AbstractTrainer):
                 # TODO: should only do that when full_sort_predict is not implemented, otherwise is a waste of memory
                 if self.item_tensor is None:
                     self.item_tensor = eval_data._dataset.get_item_feature().to(self.device)
-            elif mode == 'sampled':
-                eval_func = self._sampled_sort_batch_eval
+            elif mode.startswith('sampled'):
+                n = int(mode[7:])
+                eval_func = partial(self._sampled_sort_batch_eval, n_negatives=n)
             else:
                 raise RuntimeError('Invalid mode for full sort evaluation. Should be "full" or "sampled"')
         else:

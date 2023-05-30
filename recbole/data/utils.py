@@ -260,7 +260,7 @@ def get_dataloader(config, phase: Literal["train", "valid", "test", "evaluation"
             return KnowledgeBasedDataLoader
     else:
         eval_mode = config["eval_args"]["mode"][phase]
-        if eval_mode in ("full", "sampled"):
+        if eval_mode == "full" or eval_mode.startswith("sampled"):
             return FullSortEvalDataLoader
         else:
             return NegSampleEvalDataLoader
