@@ -233,12 +233,16 @@ class SASRecF2(SequentialRecommender):
                 pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
             elif self.sampling_strategy == 'similarity':
                 sims = (seq_output / seq_output.norm(dim=1)[:, None]) @ (pos_items_emb / pos_items_emb.norm(dim=1)[:, None]).t()  # [B, B]
-                sims.fill_diagonal_(-1000)
-                indices = sims.argsort(dim=1, descending=True)[:, :self.num_negatives]
+                sims = (sims + 1)/2 # make it positive
+                sims.fill_diagonal_(0)
+                sims = sims / sims.sum(1)[:, None]
+                indices = torch.multinomial(sims, self.num_negatives)
+##                indices = sims.argsort(dim=1, descending=True)[:, :self.num_negatives]
                 rows = torch.arange(bs).repeat_interleave(self.num_negatives).to(self.device)
                 neg_item_ids = pos_items[indices]  # [B, num_negatives]
                 neg_probs = sims[rows, indices.reshape(-1)].reshape(bs, -1)  # [B, num_negatives]
-                pos_probs = torch.ones_like(pos_items, dtype=torch.float32)
+                pos_probs = torch.ones_like(pos_items, dtype=torch.float32) / self.item_num
+                neg_probs = torch.ones_like(neg_item_ids, dtype=torch.float32) / self.item_num
             else:
                 item_distr = self._get_item_distr(interaction)
 
@@ -256,7 +260,10 @@ class SASRecF2(SequentialRecommender):
 
 
             # neg_item_ids has shape [num_negatives] if global_negatives else [B, num_negatives]
-            neg_items_emb = self.embed_items(neg_item_ids)  # [num_negatives, H] or [B, num_negatives, H]
+            if self.sampling_strategy == 'similarity':
+                neg_items_emb = pos_items_emb[indices]
+            else:
+                neg_items_emb = self.embed_items(neg_item_ids)  # [num_negatives, H] or [B, num_negatives, H]
             if self.global_negatives:
                 # neg_items_emb is [num_negatives, H]
                 # seq_output is [B, H]
