@@ -556,6 +556,9 @@ class Config(object):
         elif eval_mode[0:3] == "uni":
             sample_num = int(eval_mode[3:])
             eval_neg_sample_args = {"distribution": "uniform", "sample_num": sample_num}
+        elif eval_mode.startswith('sampled'):
+            # Do not use recbole negative sampling because it is too slow
+            eval_neg_sample_args = {"distribution": "none", "sample_num": "none"}
         elif eval_mode[0:3] == "pop":
             sample_num = int(eval_mode[3:])
             eval_neg_sample_args = {
