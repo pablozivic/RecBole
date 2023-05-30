@@ -667,13 +667,16 @@ class Trainer(AbstractTrainer):
             self.logger.info(message_output)
 
         if isinstance(eval_data, FullSortEvalDataLoader):
-            if self.config['eval_args']['mode'][phase] == 'full':
+            mode = self.config['eval_args']['mode'][phase]
+            if mode == 'full':
                 eval_func = self._full_sort_batch_eval
                 # TODO: should only do that when full_sort_predict is not implemented, otherwise is a waste of memory
                 if self.item_tensor is None:
                     self.item_tensor = eval_data._dataset.get_item_feature().to(self.device)
-            else:
+            elif mode == 'sampled':
                 eval_func = self._sampled_sort_batch_eval
+            else:
+                raise RuntimeError('Invalid mode for full sort evaluation. Should be "full" or "sampled"')
         else:
             eval_func = self._neg_sample_batch_eval
         if self.config["eval_type"] == EvaluatorType.RANKING:
