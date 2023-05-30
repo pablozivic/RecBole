@@ -364,8 +364,7 @@ class SASRecF2(SequentialRecommender):
         pos_item_embs = self.embed_items(pos_item_ids.to(self.device))
         neg_scores = torch.matmul(seq_output, neg_item_embs.transpose(0, 1))
         pos_scores = torch.mul(seq_output, pos_item_embs).sum(dim=1)
-        import ipdb;ipdb.set_trace()
-        return scores
+        return torch.cat([pos_scores.reshape((-1,1)), neg_scores], dim=1)
 
     def full_sort_predict(self, interaction, item_batch_size=50000):
         item_seq = interaction[self.ITEM_SEQ]
