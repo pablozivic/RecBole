@@ -667,7 +667,7 @@ class Trainer(AbstractTrainer):
             self.logger.info(message_output)
 
         if isinstance(eval_data, FullSortEvalDataLoader):
-            if self.config['eval_args']['mode']['phase'] == 'full':
+            if self.config['eval_args']['mode'][phase] == 'full':
                 eval_func = self._full_sort_batch_eval
                 # TODO: should only do that when full_sort_predict is not implemented, otherwise is a waste of memory
                 if self.item_tensor is None:
