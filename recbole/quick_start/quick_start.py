@@ -99,7 +99,7 @@ def run_recbole(
     test_result = trainer.evaluate(
         test_data, load_best_model=saved, show_progress=config["show_progress"],
         # TODO: remove this!
-        neg_sample_func=train_data._neg_sampling, dataset_name='test'
+        neg_sample_func=train_data._neg_sampling, phase='test'
     )
 
     environment_tb = get_environment(config)
