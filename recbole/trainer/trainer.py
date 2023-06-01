@@ -741,7 +741,7 @@ class Trainer(AbstractTrainer):
 
         if not sanity_check:
             self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head=phase,
-                                                 tail=f'samp_n={sampled_n}' if sampled_n else '')
+                                                 tail=f'samp_n_{sampled_n}' if sampled_n else '')
         return result
 
     def _map_reduce(self, result, num_sample):
