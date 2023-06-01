@@ -455,6 +455,8 @@ class Trainer(AbstractTrainer):
             show_progress=False,
             callback_fn=None,
     ):
+        self.metrics_logger.log_param('n_items', train_data.dataset.item_num)
+        self.metrics_logger.log_param('n_inters', train_data.dataset.inter_num)
         try:
             return self._fit(train_data, valid_data, verbose, saved, show_progress, callback_fn)
         except Exception as e:

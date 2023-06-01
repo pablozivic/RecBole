@@ -12,6 +12,7 @@ recbole.quick_start
 ########################
 """
 import logging
+import math
 from logging import getLogger
 
 import sys
@@ -96,7 +97,9 @@ def run_recbole(
     )
 
     # model evaluation
-    for sampled_n in [300, 1000, 3000, 10000, 30000, 100000]:
+
+    l = [int(math.log(0.05, 1 - 100 / dataset.item_num)), dataset.item_num // 100, 300, 1000, 3000, 10000, 30000, 100000]
+    for sampled_n in l:
         test_result = trainer.evaluate(
             test_data, load_best_model=saved, show_progress=config["show_progress"],
             # TODO: remove this!

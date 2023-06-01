@@ -42,6 +42,10 @@ class MLFlowLogger(object):
             for k, v in self.config.final_config_dict.items():
                 self.mlflow_client.log_param(self.run_id, k, v)
 
+    def log_param(self, key, value):
+        if self.enabled:
+            self.mlflow_client.log_param(self.run_id, key, value)
+
     def log_model_params(self, model):
         if self.enabled:
             self.mlflow_client.log_param(self.run_id, "model_params", model.get_num_params())
