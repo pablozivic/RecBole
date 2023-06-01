@@ -637,7 +637,7 @@ class Trainer(AbstractTrainer):
     @torch.no_grad()
     def evaluate(
         self, eval_data, phase, load_best_model=True, model_file=None, show_progress=False, neg_sample_func=None,
-        sanity_check=False
+        sanity_check=False, sampled_n=None,
     ):
         r"""Evaluate the model based on the eval data.
 
@@ -675,7 +675,7 @@ class Trainer(AbstractTrainer):
                 if self.item_tensor is None:
                     self.item_tensor = eval_data._dataset.get_item_feature().to(self.device)
             elif mode.startswith('sampled'):
-                n = int(mode[7:])
+                n = sampled_n if sampled_n else int(mode[7:])
                 eval_func = partial(self._sampled_sort_batch_eval, n_negatives=n)
             else:
                 raise RuntimeError('Invalid mode for full sort evaluation. Should be "full" or "sampled"')
@@ -740,7 +740,8 @@ class Trainer(AbstractTrainer):
             result = self._map_reduce(result, num_sample)
 
         if not sanity_check:
-            self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head=phase)
+            self.metrics_logger.log_eval_metrics(result, self.cur_epoch, head=phase,
+                                                 tail=f'samp_n={sampled_n}' if sampled_n else '')
         return result
 
     def _map_reduce(self, result, num_sample):

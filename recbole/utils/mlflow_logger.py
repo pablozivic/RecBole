@@ -49,28 +49,29 @@ class MLFlowLogger(object):
     def finish_training(self, status):
         self.mlflow_client.set_terminated(self.run_id, status)
 
-    def log_metrics(self, metrics, epoch, head="train", commit=True):
+    def log_metrics(self, metrics, epoch, head="train", tail='', commit=True):
         if self.enabled:
             if head:
-                metrics = self._add_head_to_metrics(metrics, head)
+                metrics = self._add_head_to_metrics(metrics, head, tail)
 
             for k, v in metrics.items():
                 self.mlflow_client.log_metric(self.run_id, k, v, step=epoch)
 
-    def log_eval_metrics(self, metrics, epoch, head="eval"):
+    def log_eval_metrics(self, metrics, epoch, head="eval", tail=''):
         if self.enabled:
-            metrics = self._add_head_to_metrics(metrics, head)
+            metrics = self._add_head_to_metrics(metrics, head, tail)
             for k, v in metrics.items():
                 self.mlflow_client.log_metric(self.run_id, k, v, step=epoch)
 
-    def _add_head_to_metrics(self, metrics, head):
+    def _add_head_to_metrics(self, metrics, head, tail):
+        tail = f'-{tail}' if tail else ''
         head_metrics = dict()
         for k, v in metrics.items():
             k = k.replace('@', '_at_')
             if "_step" in k:
                 head_metrics[k] = v
             else:
-                head_metrics[f"{head}/{k}"] = v
+                head_metrics[f"{head}/{k}{tail}"] = v
 
         return head_metrics
 

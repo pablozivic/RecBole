@@ -96,11 +96,12 @@ def run_recbole(
     )
 
     # model evaluation
-    test_result = trainer.evaluate(
-        test_data, load_best_model=saved, show_progress=config["show_progress"],
-        # TODO: remove this!
-        neg_sample_func=train_data._neg_sampling, phase='test'
-    )
+    for sampled_n in [300, 1000, 3000, 10000, 30000, 100000]:
+        test_result = trainer.evaluate(
+            test_data, load_best_model=saved, show_progress=config["show_progress"],
+            # TODO: remove this!
+            neg_sample_func=train_data._neg_sampling, phase='test', sampled_n=sampled_n,
+        )
 
     environment_tb = get_environment(config)
     logger.info(
