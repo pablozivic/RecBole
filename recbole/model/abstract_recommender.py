@@ -105,6 +105,12 @@ class AbstractRecommender(nn.Module):
         params = sum([np.prod(p.size()) for p in model_parameters])
         return params
 
+    def get_num_non_embedding_params(self):
+        """
+        Non trivial to implement in a general way, must be implemented by each model
+        """
+        raise NotImplementedError()
+
 
 class GeneralRecommender(AbstractRecommender):
     """This is a abstract general recommender. All the general model should implement this class.

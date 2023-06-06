@@ -48,7 +48,12 @@ class MLFlowLogger(object):
 
     def log_model_params(self, model):
         if self.enabled:
-            self.mlflow_client.log_param(self.run_id, "model_params", model.get_num_params())
+            self.mlflow_client.log_param(self.run_id, "model_total_params", model.get_num_params())
+            try:
+                # log non embedding params if possible
+                self.mlflow_client.log_param(self.run_id, "model_non_emb_params", model.get_num_non_embedding_params())
+            except NotImplementedError:
+                pass
 
     def finish_training(self, status):
         self.mlflow_client.set_terminated(self.run_id, status)

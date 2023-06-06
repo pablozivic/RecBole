@@ -11,6 +11,7 @@ SASRecF
 import torch
 from torch import nn
 from torch.nn import NLLLoss
+import numpy as np
 
 from recbole.model.abstract_recommender import SequentialRecommender
 from recbole.model.layers import TransformerEncoder, FeatureSeqEmbLayer
@@ -343,6 +344,10 @@ class SASRecF2(SequentialRecommender):
                 self.co_counts_table[iid, i] = co_iid
 
         self.co_counts_table = self.co_counts_table.to(self.device)
+
+    def get_num_non_embedding_params(self):
+        embedding_params = sum([np.prod(p.size()) for p in self.feature_embed_layer.parameters()])
+        return self.get_num_params() - embedding_params
 
     def predict(self, interaction):
         item_seq = interaction[self.ITEM_SEQ]
